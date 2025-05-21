@@ -1,4 +1,4 @@
-export function generarID(modulo = "CT") {
+export function generarIDTramite(modulo = "CT") {
   const ahora = new Date();
   const yyyy = ahora.getFullYear();
   const mm = String(ahora.getMonth() + 1).padStart(2, '0');

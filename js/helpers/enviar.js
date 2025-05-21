@@ -1,13 +1,8 @@
-import { generarID } from './idgenerator.js';
-import { mostrarModalExito } from './modalExito.js';
+// enviarFormularioSinRespuesta.js
 
-/**
- * Envía los datos del formulario en dos pasos:
- * 1. Guarda en hoja de cálculo y genera carpeta.
- * 2. (opcional) Genera nota PDF con los mismos datos.
- *
- * @param {Object} datos - Objeto completo con usuario, módulos y tipo.
- */
+import { generarIDTramite } from './idgenerator.js';
+import { validarDatosGenerales, validarModuloEspecifico } from './validaciones.js';
+
 export async function enviarFormularioSinRespuesta(datos) {
   const boton = document.getElementById('btnEnviarFormulario');
   if (boton) {
@@ -16,57 +11,52 @@ export async function enviarFormularioSinRespuesta(datos) {
   }
 
   try {
-    // 🆔 1. Generar ID único del trámite
-    const id = generarID(datos.modulo || 'CT');
-    datos.idtramite = id;
+    // ✅ Validaciones antes de enviar
+    const errorGeneral = validarDatosGenerales(datos);
+    const errorModulo = validarModuloEspecifico(datos.modulo, datos);
 
-    console.log(`🆔 ID generado: ${id}`);
+    if (errorGeneral || errorModulo) {
+      alert(`❌ Error en el formulario:\n\n${errorGeneral || errorModulo}`);
+      return;
+    }
 
-    // ✅ 2. PRIMER POST: guardar en hoja y crear carpeta
-    await fetch(
-      'https://script.google.com/macros/s/AKfycbzkpORd0dhrwQ3kwuKbwGY9XFyml-Pz9MG77L-tEQAqUZVqKBtqM4Cz-z8pPFARGeIM5A/exec',
-      {
-        method: 'POST',
-        mode: 'no-cors', // Evita error CORS, pero no permite leer respuesta
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(datos)
-      }
-    );
+    // 🆔 Generar ID
+    const idTramite = generarIDTramite(datos.modulo);
+    console.log("🆔 ID generado:", idTramite);
 
-    console.log('✅ Primer POST enviado (guardar datos y carpeta)');
-
-    // 📄 3. SEGUNDO POST: generación de nota PDF (desactivado temporalmente)
-    /*
-    const cuerpoNota = {
-      idtramite: id,
-      modulo: datos.modulo,
-      usuario: datos.usuario,
-      [`modulo_${datos.modulo}`]: datos[`modulo_${datos.modulo}`]
+    // 📁 Primer envío: solo ID y módulo para crear carpeta
+    const datosPrimeraEtapa = {
+      idtramite: idTramite,
+      modulo: datos.modulo
     };
+    console.log("📤 Enviando PRIMER POST (crear carpeta):", datosPrimeraEtapa);
 
-    await fetch(
-      'https://script.google.com/macros/s/AKfycbxJxjO4gfUo6xLbdwbU0R9TeDz9tE5xOCBpyvRa/exec',
-      {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(cuerpoNota)
-      }
-    );
+    await fetch('https://script.google.com/macros/s/AKfycbw6n6aS9HvKYAR1VjOwqYP7MlPU4hIn2u2ECbShMlJD9W1nQgd-tahpriS55xOh-LmxfQ/exec', {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(datosPrimeraEtapa)
+    });
 
-    console.log('📄 Segundo POST enviado (nota PDF)');
-    */
+    // 📄 Segundo envío: datos completos con ID
+    const datosConID = {
+      ...datos,
+      idtramite: idTramite
+    };
+    console.log("📤 Enviando SEGUNDO POST (generar nota):", datosConID);
 
-    // ✅ 4. Mostrar modal con ID
-    mostrarModalExito(id);
+    await fetch('https://script.google.com/macros/s/AKfycbzVaO3CjYb6xoIBjte0I72PHftHr9eZQTVpfIJs51c7Ann_CUGgSZ8OTmHLhxV6eDq_/exec', {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(datosConID)
+    });
+
+    mostrarModalExito(idTramite);
 
   } catch (error) {
-    console.error('❌ Error durante el envío del formulario:', error);
-    alert('⚠️ Ocurrió un error al enviar el formulario. Intente nuevamente.');
+    console.error('❌ Error en envío:', error);
+    alert('❌ Hubo un problema al enviar el formulario.');
   } finally {
     if (boton) {
       boton.disabled = false;

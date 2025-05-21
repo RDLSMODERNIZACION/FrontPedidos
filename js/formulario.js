@@ -1,6 +1,6 @@
 import { archivoAObjetoBase64 } from './helpers/base64.js';
 import { enviarFormularioSinRespuesta } from './helpers/enviar.js';
-import { limpiarFormulario } from './helpers/limpiar.js';
+import { mostrarModalExito } from './helpers/modalExito.js';
 
 import { obtenerDatosGeneral } from './modulos/general.js';
 import { obtenerDatosAlquiler } from './modulos/alquiler.js';
@@ -62,8 +62,7 @@ document.getElementById('btnEnviarFormulario').addEventListener('click', async f
   // Envío del formulario (genera el ID adentro de enviar.js)
   await enviarFormularioSinRespuesta(datosRecopilados);
 
-  // Limpieza
-  limpiarFormulario();
+
 
   // Restaurar botón
   boton.disabled = false;
