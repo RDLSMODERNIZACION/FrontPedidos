@@ -1,0 +1,17 @@
+[
+    {
+      "id": "AG-20250426-001",
+      "nombre": "Juan Pérez",
+      "secretaria": "SECRETARÍA DE HACIENDA",
+      "estado": "En revisión",
+      "cuit": "30712345678"
+    },
+    {
+      "id": "AG-20250426-002",
+      "nombre": "Marta Gómez",
+      "secretaria": "SECRETARÍA DE INFRAESTRUCTURA",
+      "estado": "Aprobado",
+      "cuit": "30567891234"
+    }
+  ]
+  

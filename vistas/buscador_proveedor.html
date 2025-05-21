@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buscar Pedido - Proveedor</title>
+  <link href="../css/dashboard.css" rel="stylesheet">
+</head>
+
+<body>
+  <aside>
+    <div>
+      <h2>Mi Portal</h2>
+      <div class="user-info" id="info-usuario">Cargando...</div>
+      <ul id="menu-principal"></ul>
+    </div>
+    <button id="cerrarSesionBtn" class="btn-logout mt-4">Cerrar Sesión</button>
+  </aside>
+
+  <main>
+    <h1>Buscar Pedido</h1>
+    <div id="contenido-principal">
+      <form id="form-buscador" class="mb-4">
+        <div class="input-group">
+          <input type="text" id="busqueda" class="form-control" placeholder="Buscar por ID de trámite o CUIT" required>
+          <button class="btn btn-primary" type="submit">Buscar</button>
+        </div>
+      </form>
+      <div id="resultado-busqueda"></div>
+    </div>
+  </main>
+
+  <script src="../js/validacionUsuario.js"></script>
+  <script src="../js/vistas/buscador_proveedor.js"></script>
+</body>
+</html>

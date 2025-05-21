@@ -1,0 +1,82 @@
+<div class="modulo" data-modulo="adquisicion">
+  <div class="card shadow-sm mb-4">
+    <div class="card-body position-relative">
+
+      <!-- Switch -->
+      <div class="position-absolute top-0 end-0 mt-3 me-3 d-flex align-items-center">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="switchAdquisicion" title="Mostrar/Ocultar contenido">
+        </div>
+        <button type="button" class="btn btn-link p-0 ms-2" id="ayudaBtn" style="font-size: 1.5rem;">ℹ️</button>
+      </div>
+
+      <h5 class="card-title text-primary fw-bold mb-4">¿Qué desea comprar?</h5>
+
+      <!-- Cartel ayuda -->
+      <div id="ayudaTexto" class="alert alert-info d-none" role="alert">
+        Activá el interruptor para ver las opciones de carga de ítems manualmente o mediante archivo. Luego seleccioná cómo querés cargar tus pedidos.
+      </div>
+
+      <!-- Contenedor opciones -->
+      <div id="opcionesCarga" class="d-none">
+
+        <!-- Motivo -->
+        <div class="mb-4">
+          <label for="motivoCompra" class="form-label">¿Para qué va a solicitar esta compra?</label>
+          <input type="text" id="motivoCompra" name="motivoCompra" class="form-control" placeholder="Ej: Equipamiento, reparación, etc.">
+        </div>
+
+        <!-- Radios -->
+        <div class="mb-4">
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="radio" name="modoCarga" id="modoManual" value="manual">
+            <label class="form-check-label" for="modoManual">Agregar ítems manualmente</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="modoCarga" id="modoArchivo" value="archivo">
+            <label class="form-check-label" for="modoArchivo">Subir archivo de pedidos</label>
+          </div>
+        </div>
+
+        <!-- Manual -->
+        <div id="seccionManual" class="d-none">
+          <h5 class="text-success fw-bold mb-3">Detalle de Ítems</h5>
+          <div class="table-responsive">
+            <table class="table table-bordered table-striped">
+              <thead class="table-primary">
+                <tr>
+                  <th>Descripción</th>
+                  <th>Cantidad</th>
+                  <th>Unidad</th>
+                  <th>Observaciones</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tablaItemsBody">
+                <!-- Ítems se agregan aquí -->
+              </tbody>
+            </table>
+          </div>
+          <div class="text-end">
+            <button type="button" class="btn btn-outline-primary" id="agregarItemBtn">➕ Agregar Ítem</button>
+          </div>
+        </div>
+
+        <!-- Archivo -->
+        <div id="seccionArchivo" class="d-none mt-4">
+          <h5 class="text-success fw-bold mb-3">Subir archivo de pedidos</h5>
+          <div class="mb-3">
+            <a href="https://docs.google.com/spreadsheets/d/1hHLQc-1ntq-NWD4idzThMGyQ7AKhGAKPGkoklJ2kXVg/edit" target="_blank" class="btn btn-outline-success">
+              📥 Descargar plantilla modelo
+            </a>
+          </div>
+          <div class="mb-3">
+            <label for="archivoPedidos" class="form-label">Subir archivo (.xlsx o .csv):</label>
+            <input class="form-control" type="file" id="archivoPedidos" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+          </div>
+        </div>
+
+      </div> <!-- opcionesCarga -->
+    </div>
+  </div>
+</div>

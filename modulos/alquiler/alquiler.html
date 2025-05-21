@@ -1,0 +1,101 @@
+<div class="modulo" data-modulo="alquiler">
+  <div class="card shadow-sm mb-4">
+    <div class="card-body position-relative">
+
+      <!-- Switch + Botón de ayuda arriba a la derecha -->
+      <div class="position-absolute top-0 end-0 mt-3 me-3 d-flex align-items-center">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="switchAlquiler" name="switchAlquiler" title="Mostrar/Ocultar formulario de alquiler">
+        </div>
+        <button type="button" class="btn btn-link p-0 ms-2" id="ayudaAlquilerBtn" style="font-size: 1.5rem;" title="¿Qué significa esto?">ℹ️</button>
+      </div>
+
+      <!-- Título -->
+      <h5 class="text-primary fw-bold mb-4">¿Qué desea alquilar?</h5>
+
+      <!-- Texto de ayuda -->
+      <div id="ayudaTextoAlquiler" class="alert alert-info d-none" role="alert">
+        <strong>¿Cómo funciona?</strong><br>
+        1️⃣ Activá el interruptor para habilitar las opciones de alquiler.<br>
+        2️⃣ Luego elegí qué tipo de elemento querés alquilar (edificio, maquinaria u otros).<br>
+        3️⃣ Se abrirán las preguntas específicas según tu elección.<br><br>
+        🔵 Esto nos ayuda a recopilar toda la información necesaria para tu solicitud de alquiler.
+      </div>
+
+      <!-- Opciones y secciones de alquiler -->
+      <div id="opcionesAlquiler" class="d-none">
+
+        <!-- Radios -->
+        <div class="mb-4">
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="radio" name="tipoAlquiler" id="alquilerEdificio" value="edificio">
+            <label class="form-check-label" for="alquilerEdificio">Edificio</label>
+          </div>
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="radio" name="tipoAlquiler" id="alquilerMaquinaria" value="maquinaria">
+            <label class="form-check-label" for="alquilerMaquinaria">Maquinaria</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="tipoAlquiler" id="alquilerOtros" value="otros">
+            <label class="form-check-label" for="alquilerOtros">Otros</label>
+          </div>
+        </div>
+
+        <!-- Sección Edificio -->
+        <div id="seccionEdificioAlquiler" class="d-none">
+          <h6 class="text-success fw-bold mb-3">Datos del Edificio</h6>
+          <div class="mb-3">
+            <label for="usoEdificioAlquiler" class="form-label">¿Para qué se va a usar el edificio?</label>
+            <textarea id="usoEdificioAlquiler" name="usoEdificioAlquiler" class="form-control" rows="3"></textarea>
+          </div>
+          <div class="mb-3">
+            <label for="ubicacionEdificioAlquiler" class="form-label">Ubicación del edificio:</label>
+            <input type="text" id="ubicacionEdificioAlquiler" name="ubicacionEdificioAlquiler" class="form-control">
+          </div>
+        </div>
+
+        <!-- Sección Maquinaria -->
+        <div id="seccionMaquinariaAlquiler" class="d-none mt-4">
+          <h6 class="text-success fw-bold mb-3">Datos de la Maquinaria</h6>
+          <div class="mb-3">
+            <label for="usoMaquinariaAlquiler" class="form-label">¿Para qué se va a usar la maquinaria?</label>
+            <textarea id="usoMaquinariaAlquiler" name="usoMaquinariaAlquiler" class="form-control" rows="3"></textarea>
+          </div>
+          <div class="mb-3">
+            <label for="tipoMaquinariaAlquiler" class="form-label">Tipo de maquinaria:</label>
+            <select id="tipoMaquinariaAlquiler" name="tipoMaquinariaAlquiler" class="form-select">
+              <option value="">Seleccione tipo de maquinaria...</option>
+            </select>
+          </div>
+
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="combustibleAlquiler" name="combustibleAlquiler">
+            <label class="form-check-label" for="combustibleAlquiler">¿Requiere combustible?</label>
+          </div>
+          <div class="form-check mb-4">
+            <input class="form-check-input" type="checkbox" id="choferAlquiler" name="choferAlquiler">
+            <label class="form-check-label" for="choferAlquiler">¿Requiere chofer?</label>
+          </div>
+
+          <!-- Contenedor Cronograma -->
+          <div id="contenedor-cronograma-alquiler"></div>
+        </div>
+
+        <!-- Sección Otros -->
+        <div id="seccionOtrosAlquiler" class="d-none mt-4">
+          <h6 class="text-success fw-bold mb-3">Otros Elementos</h6>
+          <div class="mb-3">
+            <label for="detalleOtrosAlquiler" class="form-label">¿Qué se desea alquilar?</label>
+            <input type="text" id="detalleOtrosAlquiler" name="detalleOtrosAlquiler" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label for="usoOtrosAlquiler" class="form-label">Detalle de uso:</label>
+            <textarea id="usoOtrosAlquiler" name="usoOtrosAlquiler" class="form-control" rows="3"></textarea>
+          </div>
+        </div>
+
+      </div> <!-- cierre opcionesAlquiler -->
+
+    </div> <!-- cierre card-body -->
+  </div> <!-- cierre card -->
+</div> <!-- cierre .modulo -->

@@ -1,0 +1,78 @@
+<div class="card shadow-sm mb-4">
+  <div class="card-body" id="modulo-serviciosextension">
+
+    <!-- Selección de tipo de servicio -->
+    <h5 class="text-primary fw-bold mb-3">¿Qué tipo de servicio necesita?</h5>
+    <div class="mb-4">
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="radio" name="tipoServicioExtension" id="servicioMantenimientoExtension" value="mantenimiento">
+        <label class="form-check-label" for="servicioMantenimientoExtension">
+          Mantenimiento
+        </label>
+      </div>
+      <div class="form-check">
+        <input class="form-check-input" type="radio" name="tipoServicioExtension" id="servicioProfesionalesExtension" value="profesionales">
+        <label class="form-check-label" for="servicioProfesionalesExtension">
+          Profesionales
+        </label>
+      </div>
+    </div>
+
+    <!-- Sección Mantenimiento -->
+    <div id="seccionMantenimientoExtension" class="d-none">
+      <h6 class="text-success fw-bold mb-3">Tipo de Mantenimiento</h6>
+      <div class="mb-3">
+        <label class="form-label">Seleccione el tipo de mantenimiento:</label>
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="radio" name="tipoMantenimientoExtension" id="mantenimientoEscuelasExtension" value="escuelas">
+          <label class="form-check-label" for="mantenimientoEscuelasExtension">
+            Mantenimiento de Escuelas
+          </label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="tipoMantenimientoExtension" id="mantenimientoOtrosExtension" value="otros">
+          <label class="form-check-label" for="mantenimientoOtrosExtension">
+            Otros Mantenimientos
+          </label>
+        </div>
+      </div>
+
+      <!-- Sub-sección Mantenimiento de Escuelas -->
+      <div id="seccionEscuelasExtension" class="d-none mt-4">
+        <h6 class="fw-bold text-secondary mb-3">Mantenimiento en Escuela</h6>
+        <div class="mb-3">
+          <label for="escuelaSeleccionadaExtension" class="form-label">Seleccione la escuela:</label>
+          <select id="escuelaSeleccionadaExtension" name="escuelaSeleccionadaExtension" class="form-select" required>
+            <option value="">Cargando escuelas...</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label for="detalleMantenimientoEscuelaExtension" class="form-label">¿Qué necesita mantenimiento en la escuela?</label>
+          <textarea id="detalleMantenimientoEscuelaExtension" name="detalleMantenimientoEscuelaExtension" class="form-control" rows="3" required></textarea>
+        </div>
+      </div>
+
+      <!-- Sub-sección Otros mantenimientos -->
+      <div id="seccionOtrosMantenimientosExtension" class="d-none mt-4">
+        <h6 class="fw-bold text-secondary mb-3">Otros Mantenimientos</h6>
+        <div class="mb-3">
+          <label for="detalleMantenimientoOtrosExtension" class="form-label">¿Qué necesita mantenimiento?</label>
+          <textarea id="detalleMantenimientoOtrosExtension" name="detalleMantenimientoOtrosExtension" class="form-control" rows="3" required></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sección Profesionales -->
+    <div id="seccionProfesionalesExtension" class="d-none mt-4">
+      <h6 class="text-success fw-bold mb-3">Profesionales Solicitados</h6>
+      <div class="mb-3">
+        <label for="tipoProfesionalExtension" class="form-label">Tipo de profesional:</label>
+        <input type="text" id="tipoProfesionalExtension" name="tipoProfesionalExtension" class="form-control" required>
+      </div>
+
+      <!-- Contenedor Cronograma -->
+      <div id="contenedor-cronograma-extension" class="mb-3"></div>
+    </div>
+
+  </div>
+</div>

@@ -1,0 +1,37 @@
+<div class="modulo" data-modulo="mantenimientodeescuelas">
+  <div class="card shadow-sm p-3 mb-4">
+    <div class="card-body position-relative">
+
+      <!-- Switch en la esquina superior derecha -->
+      <div class="position-absolute top-0 end-0 mt-3 me-3 d-flex align-items-center">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="switchMantenimientodeescuelas" name="switchMantenimientodeescuelas" title="Activar mantenimiento">
+        </div>
+        <button type="button" class="btn btn-link p-0 ms-2" id="ayudaBtn" style="font-size: 1.5rem;" title="¿Qué significa esto?">ℹ️</button>
+      </div>
+
+      <h5 class="card-title mb-4">Mantenimiento de Escuelas</h5>
+
+      <!-- Texto de ayuda oculto -->
+      <div id="ayudaTexto" class="alert alert-info d-none" role="alert">
+        Activá el interruptor si la escuela necesita una reparación o gestión. Luego podrás seleccionar la escuela y detallar el problema.
+      </div>
+
+      <!-- Sección desplegable -->
+      <div id="detalleMantenimiento" class="d-none mt-3">
+        <div class="mb-3">
+          <label for="escuelaSelect" class="form-label">Seleccione una escuela:</label>
+          <select class="form-select form-select-sm" id="escuelaSelect" name="escuela">
+            <option value="">Seleccione...</option>
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label for="detalleTrabajo" class="form-label">Detalle del trabajo a realizar:</label>
+          <input type="text" class="form-control form-control-sm" id="detalleTrabajo" name="detalleMantenimiento" placeholder="Describa el trabajo requerido">
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
