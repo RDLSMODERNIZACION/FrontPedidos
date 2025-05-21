@@ -87,6 +87,7 @@ function mostrarTituloDinamico(usuario) {
   }
   
   
+  
   // 🚀 Función para cargar menú en desktop y móvil
   function cargarMenu() {
     const menuDesktop = document.getElementById('menu-principal');
@@ -123,11 +124,13 @@ function mostrarTituloDinamico(usuario) {
     });
   }
   
+
   // 🚀 Función para cerrar sesión
   function cerrarSesion() {
     localStorage.removeItem('usuario');
     window.location.href = '../index.html';
   }
+
   
   // 🚀 Función para cargar vistas dinámicamente
   async function cargarVista(vista) {
@@ -152,6 +155,7 @@ function mostrarTituloDinamico(usuario) {
           if (spanSecretaria) spanSecretaria.textContent = usuario.secretaria;
           if (tituloSecretaria) tituloSecretaria.textContent = usuario.secretaria;
         }
+
   
         // 🚀 Ahora cargar los módulos
         if (typeof inicializarFormularioBase === 'function') {

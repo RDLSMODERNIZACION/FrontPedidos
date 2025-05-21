@@ -54,8 +54,9 @@
     // 🚀 Ahora cargar el formulario.js, pero solo si todo salió bien
     const scriptFormulario = document.createElement('script');
     scriptFormulario.src = '../js/formulario.js';
-    scriptFormulario.type = 'module';
-    document.body.appendChild(scriptFormulario);
+    scriptFormulario.type = 'module'; // <- 🔥 ESTO ES CLAVE
+  document.body.appendChild(scriptFormulario);
+
 
     scriptFormulario.onload = () => {
       console.log('✅ formulario.js cargado y ejecutado.');
@@ -88,8 +89,8 @@ function esperarElemento(selector) {
 async function cargarModulo(nombreModulo) {
   try {
     console.log(`⏳ Intentando cargar HTML de módulo: ${nombreModulo}`);
-    const response = await fetch(`modulos/${nombreModulo}/${nombreModulo}.html`); // RUTA RELATIVA
-
+    const response = await fetch(`/modulos/${nombreModulo}/${nombreModulo}.html`);
+    
     if (!response.ok) {
       throw new Error(`No se pudo cargar el HTML del módulo "${nombreModulo}". Estado: ${response.status}`);
     }
@@ -97,10 +98,10 @@ async function cargarModulo(nombreModulo) {
     const html = await response.text();
     document.getElementById('contenedor-modulos').insertAdjacentHTML('beforeend', html);
 
-    await new Promise(resolve => setTimeout(resolve, 0)); // Esperar 1 frame
+    await new Promise(resolve => setTimeout(resolve, 0)); // Esperar 1 frame para asegurar que el DOM procese
 
     const script = document.createElement('script');
-    script.src = `modulos/${nombreModulo}/${nombreModulo}.js`; // RUTA RELATIVA
+    script.src = `/modulos/${nombreModulo}/${nombreModulo}.js`;
     script.defer = true;
     document.body.appendChild(script);
 
@@ -117,7 +118,7 @@ async function cargarModulo(nombreModulo) {
 
   } catch (error) {
     console.error(`❌ Error cargando módulo ${nombreModulo}:`, error);
-    throw error;
+    throw error; // Para que en iniciarLoader() capture también el error del módulo individual
   }
 }
 
