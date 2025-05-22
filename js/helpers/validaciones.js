@@ -85,72 +85,146 @@ function validarModuloGeneral(datos) {
 }
 
 
-// 🧩 ALQUILER
-function validarModuloAlquiler(datos) {
+  function validarModuloAlquiler(datos) {
   if (!datos?.rubro) {
     mostrarModalError('Debe seleccionarse el rubro de alquiler.');
     return false;
   }
 
-  const esVacio = Object.values(datos).every(v => !v || v === false || v?.trim?.() === '');
+  const rubro = datos.rubro;
 
-  if (esVacio) {
-    mostrarModalError('Debe completarse al menos un campo del módulo de alquiler.');
+  if (!datos.detalleUso?.trim()) {
+    mostrarModalError('Debe completarse el uso del alquiler.');
     return false;
   }
 
-  switch (datos.rubro) {
+  if (!datos.objeto?.trim()) {
+    mostrarModalError('Debe completarse el objeto del alquiler.');
+    return false;
+  }
+
+  switch (rubro) {
     case 'edificio':
-      if (!datos.ubicacionEdificioAlquiler?.trim()) {
-        mostrarModalError('Falta la ubicación del edificio.');
-        return false;
-      }
-      if (!datos.usoEdificioAlquiler?.trim()) {
-        mostrarModalError('Falta el uso del edificio.');
-        return false;
-      }
+      // Ya se validaron los dos únicos campos obligatorios arriba
       break;
+
     case 'maquinaria':
-      if (!datos.tipoMaquinariaAlquiler?.trim()) {
-        mostrarModalError('Falta el tipo de maquinaria.');
+      if (!datos.cronogramaDesde?.trim()) {
+        mostrarModalError('Debe completarse la fecha de inicio del cronograma.');
         return false;
       }
-      if (!datos.usoMaquinariaAlquiler?.trim()) {
-        mostrarModalError('Falta el uso de la maquinaria.');
+
+      if (!datos.cronogramaHasta?.trim()) {
+        mostrarModalError('Debe completarse la fecha de finalización del cronograma.');
         return false;
       }
+
+      if (!datos.cronogramaHoras?.trim() || datos.cronogramaHoras === '0') {
+        mostrarModalError('Debe completarse la cantidad de horas del cronograma.');
+        return false;
+      }
+
+      // requiereCombustible y requiereChofer pueden ser false, no hace falta validarlos
       break;
+
     case 'otros':
-      if (!datos.detalleOtrosAlquiler?.trim()) {
-        mostrarModalError('Debe describirse el alquiler solicitado.');
-        return false;
-      }
+      // Ya se validaron detalleUso y objeto arriba
       break;
+
+    default:
+      mostrarModalError('El rubro seleccionado no es válido.');
+      return false;
   }
 
   return true;
 }
 
-// 🧩 ADQUISICIÓN
-function validarModuloAdquisicion(datos) {
-  const campos = [
-    datos?.detalleServicio,
-    datos?.tipoCarga,
-    datos?.contenidoCarga
-  ];
-
-  if (campos.every(campo => !campo?.trim())) {
-    mostrarModalError('Debe completarse al menos un campo en adquisición.');
+function validarModuloReparacion(datos) {
+  if (!datos?.rubro) {
+    mostrarModalError('Debe seleccionarse el rubro de reparación.');
     return false;
   }
 
+  if (datos.rubro === 'maquinaria' || datos.rubro === 'otros') {
+    // Validar objeto como JSON con al menos una unidad válida
+    let unidades = [];
+
+    try {
+      unidades = JSON.parse(datos.objeto);
+    } catch (e) {
+      mostrarModalError('La lista de unidades a reparar no está en un formato válido.');
+      return false;
+    }
+
+    const hayUnidadValida = Array.isArray(unidades) && unidades.some(u =>
+      u.unidad?.trim() && u.detalle?.trim()
+    );
+
+    if (!hayUnidadValida) {
+      mostrarModalError('Debe incluir al menos una unidad válida a reparar.');
+      return false;
+    }
+
+    if (!datos.detalleReparacion?.trim()) {
+      mostrarModalError('Debe describirse el detalle de la reparación.');
+      return false;
+    }
+  } else {
+    mostrarModalError('El rubro seleccionado no es válido para reparación.');
+    return false;
+  }
+
+  return true;
+}
+
+
+
+function validarModuloAdquisicion(datos) {
   if (!datos?.detalleServicio?.trim()) {
     mostrarModalError('Debe completarse el detalle del servicio o bien.');
     return false;
   }
 
+  if (!datos?.tipoCarga) {
+    mostrarModalError('Debe seleccionarse el tipo de carga (manual o archivo).');
+    return false;
+  }
+
+  // Validar contenido según tipo de carga
+  if (datos.tipoCarga === 'MANUAL') {
+    let contenido = [];
+
+    try {
+      contenido = JSON.parse(datos.contenidoCarga);
+    } catch (e) {
+      mostrarModalError('El contenido ingresado no es un JSON válido.');
+      return false;
+    }
+
+    const hayItemValido = Array.isArray(contenido) && contenido.some(item =>
+      item.descripcion?.trim() &&
+      item.cantidad?.trim() &&
+      item.unidad?.trim()
+    );
+
+    if (!hayItemValido) {
+      mostrarModalError('Debe completarse al menos un ítem válido en la tabla de carga manual.');
+      return false;
+    }
+
+  } else if (datos.tipoCarga === 'ARCHIVO') {
+    if (datos.contenidoCarga === '[Sin archivo]') {
+      mostrarModalError('Debe adjuntarse un archivo si seleccionó "archivo" como tipo de carga.');
+      return false;
+    }
+  } else {
+    mostrarModalError('El tipo de carga seleccionado no es válido.');
+    return false;
+  }
+
   return true;
 }
+
 
 // 🧩 SERVICIOS
 function validarModuloServicios(datos) {
