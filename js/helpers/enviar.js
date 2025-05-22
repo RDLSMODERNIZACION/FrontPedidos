@@ -2,6 +2,8 @@
 
 import { generarIDTramite } from './idgenerator.js';
 import { validarDatosGenerales, validarModuloEspecifico } from './validaciones.js';
+import { mostrarModalExito, mostrarModalError } from './modalExito.js'; // ✅
+
 
 export async function enviarFormularioSinRespuesta(datos) {
   const boton = document.getElementById('btnEnviarFormulario');
@@ -15,10 +17,6 @@ export async function enviarFormularioSinRespuesta(datos) {
     const errorGeneral = validarDatosGenerales(datos);
     const errorModulo = validarModuloEspecifico(datos.modulo, datos);
 
-    if (errorGeneral || errorModulo) {
-      alert(`❌ Error en el formulario:\n\n${errorGeneral || errorModulo}`);
-      return;
-    }
 
     // 🆔 Generar ID
     const idTramite = generarIDTramite(datos.modulo);

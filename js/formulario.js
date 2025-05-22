@@ -1,6 +1,7 @@
 import { archivoAObjetoBase64 } from './helpers/base64.js';
 import { enviarFormularioSinRespuesta } from './helpers/enviar.js';
-import { mostrarModalExito } from './helpers/modalExito.js';
+
+import { validarDatosGenerales, validarModuloEspecifico } from './helpers/validaciones.js';
 
 import { obtenerDatosGeneral } from './modulos/general.js';
 import { obtenerDatosAlquiler } from './modulos/alquiler.js';
@@ -10,7 +11,7 @@ import { obtenerDatosObras } from './modulos/obras.js';
 import { obtenerDatosReparacion } from './modulos/reparacion.js';
 import { obtenerDatosServicios } from './modulos/servicios.js';
 
-// Escucha el botón de envío
+// ✅ REGISTRO DIRECTO DEL EVENTO (sin esperar DOMContentLoaded)
 document.getElementById('btnEnviarFormulario').addEventListener('click', async function () {
   const boton = this;
   if (boton.disabled) return;
@@ -25,7 +26,7 @@ document.getElementById('btnEnviarFormulario').addEventListener('click', async f
     }
   };
 
-  // Detecta los módulos activos (general siempre está incluido)
+  // Detecta los módulos activos (general siempre va)
   const modulosActivos = Array.from(document.querySelectorAll('.modulo[data-modulo]')).filter(modulo => {
     const nombre = modulo.dataset.modulo;
     if (nombre === 'general') return true;
@@ -33,12 +34,11 @@ document.getElementById('btnEnviarFormulario').addEventListener('click', async f
     return document.getElementById(idSwitch)?.checked;
   });
 
-  // Recolecta los datos de cada módulo activado
   for (const divModulo of modulosActivos) {
     const nombre = divModulo.dataset.modulo;
     let datosModulo = {};
 
-    await esperarModuloCargado(nombre); // Asegura que el DOM esté listo
+    await esperarModuloCargado(nombre);
 
     switch (nombre) {
       case 'general': datosModulo = await obtenerDatosGeneral(); break;
@@ -54,25 +54,32 @@ document.getElementById('btnEnviarFormulario').addEventListener('click', async f
     datosRecopilados[`modulo_${nombre}`] = datosModulo;
   }
 
-  // Define cuál es el módulo principal (el primero que no sea "general")
   datosRecopilados.modulo = modulosActivos.find(m => m.dataset.modulo !== 'general')?.dataset.modulo || 'general';
 
   console.log('🧪 JSON FINAL A ENVIAR:', JSON.stringify(datosRecopilados, null, 2));
 
-  // Envío del formulario (genera el ID adentro de enviar.js)
+  // 🛡️ Validaciones
+  if (!validarDatosGenerales(datosRecopilados)) {
+    boton.disabled = false;
+    boton.innerText = '📤 Enviar Formulario';
+    return;
+  }
+
+  if (!validarModuloEspecifico(datosRecopilados.modulo, datosRecopilados)) {
+    boton.disabled = false;
+    boton.innerText = '📤 Enviar Formulario';
+    return;
+  }
+
+  // ✅ Envío final
   await enviarFormularioSinRespuesta(datosRecopilados);
 
-
-
-  // Restaurar botón
   boton.disabled = false;
   boton.innerText = '📤 Enviar Formulario';
 });
 
 /**
  * Espera a que el módulo esté completamente cargado en el DOM
- * @param {string} nombreModulo
- * @returns {Promise<HTMLElement>}
  */
 function esperarModuloCargado(nombreModulo) {
   return new Promise(resolve => {

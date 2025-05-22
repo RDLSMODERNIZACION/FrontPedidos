@@ -1,15 +1,19 @@
+import { mostrarModalError } from './modalExito.js'; // o './modal.js' si lo unificaste
+
 export function validarDatosGenerales(datos) {
   const usuario = datos.usuario || {};
 
   if (!usuario.nombre?.trim()) {
-    return 'Debe completarse el nombre del solicitante.';
+    mostrarModalError('Debe completarse el nombre del solicitante.');
+    return false;
   }
 
   if (!usuario.secretaria?.trim()) {
-    return 'Debe seleccionarse una secretaría.';
+    mostrarModalError('Debe seleccionarse una secretaría.');
+    return false;
   }
 
-  return null;
+  return true;
 }
 
 export function validarModuloEspecifico(modulo, datos) {
@@ -29,38 +33,39 @@ export function validarModuloEspecifico(modulo, datos) {
     case 'profesionales':
       return validarModuloProfesionales(datos.modulo_profesionales);
     default:
-      return null;
+      return true;
   }
 }
 
 // 🧩 GENERAL
 function validarModuloGeneral(datos) {
+  // Validación 1: fecha de inicio obligatoria
   if (!datos?.fechadesde?.trim()) {
-    return 'Debe completarse la fecha de inicio.';
+    mostrarModalError('Debe completarse la fecha de inicio.');
+    return false;
   }
 
-  const vacíos = [
-    datos.presupuesto,
-    datos.presupuesto1,
-    datos.presupuesto2,
-    datos.fechaperiododesde,
-    datos.fechaperiodohasta,
-    datos.observacion
-  ];
-
-  if (vacíos.every(campo => !campo?.trim())) {
-    return 'Debe completarse al menos un campo adicional (presupuesto, período u observación).';
+  // Validación 2: presupuesto obligatorio
+  if (!datos.presupuesto?.trim()) {
+    mostrarModalError('Debe completarse el campo "presupuesto".');
+    return false;
   }
 
-  // Validación cruzada de fechas del período
+  // Validación 3: período obligatorio
+  if (!datos.fechaperiododesde?.trim() || !datos.fechaperiodohasta?.trim()) {
+    mostrarModalError('Debe completarse el período: fecha desde y hasta.');
+    return false;
+  }
+
+  // Validación 4: coherencia de período
   const desde = parseFecha(datos.fechaperiododesde);
   const hasta = parseFecha(datos.fechaperiodohasta);
-
   if (desde && hasta && hasta < desde) {
-    return 'La fecha final del período no puede ser anterior a la fecha de inicio.';
+    mostrarModalError('La fecha final del período no puede ser anterior a la fecha de inicio del período.');
+    return false;
   }
 
-  // Validación de presupuestos si fecha desde ≠ hoy
+  // Validación 5: si fecha de inicio no es hoy, deben completarse presupuesto1 y 2
   const hoy = new Date();
   const fechaDesde = parseFecha(datos.fechadesde);
   const mismaFecha = fechaDesde &&
@@ -70,38 +75,60 @@ function validarModuloGeneral(datos) {
 
   if (!mismaFecha) {
     if (!datos.presupuesto1?.trim() || !datos.presupuesto2?.trim()) {
-      return 'Cuando la fecha de inicio no es hoy, deben completarse dos presupuestos.';
+      mostrarModalError('Cuando la fecha de inicio no es hoy, deben completarse los dos presupuestos adicionales.');
+      return false;
     }
   }
 
-  return null;
+  // Observación es opcional
+  return true;
 }
+
 
 // 🧩 ALQUILER
 function validarModuloAlquiler(datos) {
-  if (!datos?.rubro) return 'Debe seleccionarse el rubro de alquiler.';
+  if (!datos?.rubro) {
+    mostrarModalError('Debe seleccionarse el rubro de alquiler.');
+    return false;
+  }
 
   const esVacio = Object.values(datos).every(v => !v || v === false || v?.trim?.() === '');
 
   if (esVacio) {
-    return 'Debe completarse al menos un campo del módulo de alquiler.';
+    mostrarModalError('Debe completarse al menos un campo del módulo de alquiler.');
+    return false;
   }
 
   switch (datos.rubro) {
     case 'edificio':
-      if (!datos.ubicacionEdificioAlquiler?.trim()) return 'Falta la ubicación del edificio.';
-      if (!datos.usoEdificioAlquiler?.trim()) return 'Falta el uso del edificio.';
+      if (!datos.ubicacionEdificioAlquiler?.trim()) {
+        mostrarModalError('Falta la ubicación del edificio.');
+        return false;
+      }
+      if (!datos.usoEdificioAlquiler?.trim()) {
+        mostrarModalError('Falta el uso del edificio.');
+        return false;
+      }
       break;
     case 'maquinaria':
-      if (!datos.tipoMaquinariaAlquiler?.trim()) return 'Falta el tipo de maquinaria.';
-      if (!datos.usoMaquinariaAlquiler?.trim()) return 'Falta el uso de la maquinaria.';
+      if (!datos.tipoMaquinariaAlquiler?.trim()) {
+        mostrarModalError('Falta el tipo de maquinaria.');
+        return false;
+      }
+      if (!datos.usoMaquinariaAlquiler?.trim()) {
+        mostrarModalError('Falta el uso de la maquinaria.');
+        return false;
+      }
       break;
     case 'otros':
-      if (!datos.detalleOtrosAlquiler?.trim()) return 'Debe describirse el alquiler solicitado.';
+      if (!datos.detalleOtrosAlquiler?.trim()) {
+        mostrarModalError('Debe describirse el alquiler solicitado.');
+        return false;
+      }
       break;
   }
 
-  return null;
+  return true;
 }
 
 // 🧩 ADQUISICIÓN
@@ -113,55 +140,63 @@ function validarModuloAdquisicion(datos) {
   ];
 
   if (campos.every(campo => !campo?.trim())) {
-    return 'Debe completarse al menos un campo en adquisición.';
+    mostrarModalError('Debe completarse al menos un campo en adquisición.');
+    return false;
   }
 
   if (!datos?.detalleServicio?.trim()) {
-    return 'Debe completarse el detalle del servicio o bien.';
+    mostrarModalError('Debe completarse el detalle del servicio o bien.');
+    return false;
   }
 
-  return null;
+  return true;
 }
 
 // 🧩 SERVICIOS
 function validarModuloServicios(datos) {
   if (!datos?.detalleServicio?.trim()) {
-    return 'Debe completarse la descripción del servicio solicitado.';
+    mostrarModalError('Debe completarse la descripción del servicio solicitado.');
+    return false;
   }
 
   const campos = Object.values(datos || {});
   if (campos.every(v => !v || v?.trim?.() === '')) {
-    return 'Debe completarse al menos un campo en servicios.';
+    mostrarModalError('Debe completarse al menos un campo en servicios.');
+    return false;
   }
 
-  return null;
+  return true;
 }
 
 // 🧩 MANTENIMIENTO
 function validarModuloMantenimiento(datos) {
   if (!datos?.escuela?.trim()) {
-    return 'Debe indicarse la escuela que requiere mantenimiento.';
+    mostrarModalError('Debe indicarse la escuela que requiere mantenimiento.');
+    return false;
   }
   if (!datos?.detalleMantenimiento?.trim()) {
-    return 'Debe describirse el tipo de mantenimiento requerido.';
+    mostrarModalError('Debe describirse el tipo de mantenimiento requerido.');
+    return false;
   }
-  return null;
+  return true;
 }
 
 // 🧩 OBRAS
 function validarModuloObras(datos) {
   if (!datos?.descripcionObra?.trim()) {
-    return 'Debe completarse la descripción de la obra.';
+    mostrarModalError('Debe completarse la descripción de la obra.');
+    return false;
   }
-  return null;
+  return true;
 }
 
 // 🧩 PROFESIONALES
 function validarModuloProfesionales(datos) {
   if (!datos?.detalleProfesional?.trim()) {
-    return 'Debe completarse el detalle de la contratación profesional.';
+    mostrarModalError('Debe completarse el detalle de la contratación profesional.');
+    return false;
   }
-  return null;
+  return true;
 }
 
 // 🧠 Utilidad: convertir fecha DD/MM/YYYY a Date

@@ -1,7 +1,6 @@
 export function mostrarModalExito(id = '') {
   const modalId = 'modalExito';
 
-  // Evita duplicar el modal si ya existe
   if (!document.getElementById(modalId)) {
     const modalHtml = `
       <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}Label" aria-hidden="true">
@@ -21,11 +20,41 @@ export function mostrarModalExito(id = '') {
     `;
     document.body.insertAdjacentHTML('beforeend', modalHtml);
   } else {
-    // Si ya existe, actualiza solo el contenido del ID
     const idContainer = document.querySelector(`#${modalId} .modal-body span.text-primary`);
     if (idContainer) {
       idContainer.textContent = id;
     }
+  }
+
+  const modal = new bootstrap.Modal(document.getElementById(modalId));
+  modal.show();
+}
+
+export function mostrarModalError(mensaje = 'Ocurrió un error') {
+  const modalId = 'modalError';
+
+  if (!document.getElementById(modalId)) {
+    const html = `
+      <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}Label" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content border-danger">
+            <div class="modal-header bg-danger text-white">
+              <h5 class="modal-title" id="${modalId}Label">❌ Error en el formulario</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body text-center">
+              <p id="mensajeModalError">${mensaje}</p>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+  } else {
+    const contenedor = document.getElementById('mensajeModalError');
+    if (contenedor) contenedor.textContent = mensaje;
   }
 
   const modal = new bootstrap.Modal(document.getElementById(modalId));
