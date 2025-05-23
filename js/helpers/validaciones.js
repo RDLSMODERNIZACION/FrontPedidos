@@ -63,21 +63,28 @@ function validarModuloGeneral(datos) {
     return false;
   }
 
+  const fechaDesdeTramite = parseFecha(datos.fechadesde);
+  const fechaInicioPeriodo = parseFecha(datos.fechaperiododesde);
+  const fechaFinPeriodo = parseFecha(datos.fechaperiodohasta);
+
+  // ✅ NUEVA VALIDACIÓN agregada
+  if (fechaDesdeTramite && fechaInicioPeriodo && fechaDesdeTramite > fechaInicioPeriodo) {
+    mostrarModalError('La fecha de inicio del trámite no puede ser posterior al inicio del período solicitado.');
+    return false;
+  }
+
   // Validación 4: coherencia de período
-  const desde = parseFecha(datos.fechaperiododesde);
-  const hasta = parseFecha(datos.fechaperiodohasta);
-  if (desde && hasta && hasta < desde) {
+  if (fechaInicioPeriodo && fechaFinPeriodo && fechaFinPeriodo < fechaInicioPeriodo) {
     mostrarModalError('La fecha final del período no puede ser anterior a la fecha de inicio del período.');
     return false;
   }
 
   // Validación 5: si fecha de inicio no es hoy, deben completarse presupuesto1 y 2
   const hoy = new Date();
-  const fechaDesde = parseFecha(datos.fechadesde);
-  const mismaFecha = fechaDesde &&
-    fechaDesde.getDate() === hoy.getDate() &&
-    fechaDesde.getMonth() === hoy.getMonth() &&
-    fechaDesde.getFullYear() === hoy.getFullYear();
+  const mismaFecha = fechaDesdeTramite &&
+    fechaDesdeTramite.getDate() === hoy.getDate() &&
+    fechaDesdeTramite.getMonth() === hoy.getMonth() &&
+    fechaDesdeTramite.getFullYear() === hoy.getFullYear();
 
   if (!mismaFecha) {
     if (!datos.presupuesto1?.trim() || !datos.presupuesto2?.trim()) {
@@ -89,6 +96,7 @@ function validarModuloGeneral(datos) {
   // Observación es opcional
   return true;
 }
+
 
 
 
