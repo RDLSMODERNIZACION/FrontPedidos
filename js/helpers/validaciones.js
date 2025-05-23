@@ -32,10 +32,16 @@ export function validarModuloEspecifico(modulo, datos) {
       return validarModuloObras(datos.modulo_obras);
     case 'profesionales':
       return validarModuloProfesionales(datos.modulo_profesionales);
+    case 'reparacion':
+      return validarModuloReparacion(datos.modulo_reparacion); // ✅ FALTA ESTA LÍNEA
+    case 'mantenimientodeescuelas':
+      return validarModuloMantenimientoDeEscuelas(datos.modulo_mantenimientodeescuelas);
+
     default:
-      return true;
+      return true; // o `false` si querés que módulos desconocidos no pasen
   }
 }
+
 
 // 🧩 GENERAL
 function validarModuloGeneral(datos) {
@@ -85,50 +91,52 @@ function validarModuloGeneral(datos) {
 }
 
 
+
+ // ALQUILER
+
   function validarModuloAlquiler(datos) {
   if (!datos?.rubro) {
     mostrarModalError('Debe seleccionarse el rubro de alquiler.');
     return false;
   }
 
-  const rubro = datos.rubro;
+  const { rubro, detalleUso, objeto, cronogramaDesde, cronogramaHasta, cronogramaHoras } = datos;
 
-  if (!datos.detalleUso?.trim()) {
+  if (!detalleUso?.trim()) {
     mostrarModalError('Debe completarse el uso del alquiler.');
     return false;
   }
 
-  if (!datos.objeto?.trim()) {
+  if (!objeto?.trim()) {
     mostrarModalError('Debe completarse el objeto del alquiler.');
     return false;
   }
 
   switch (rubro) {
     case 'edificio':
-      // Ya se validaron los dos únicos campos obligatorios arriba
+      // Sin validaciones adicionales
       break;
 
     case 'maquinaria':
-      if (!datos.cronogramaDesde?.trim()) {
+      if (!cronogramaDesde?.trim()) {
         mostrarModalError('Debe completarse la fecha de inicio del cronograma.');
         return false;
       }
 
-      if (!datos.cronogramaHasta?.trim()) {
+      if (!cronogramaHasta?.trim()) {
         mostrarModalError('Debe completarse la fecha de finalización del cronograma.');
         return false;
       }
 
-      if (!datos.cronogramaHoras?.trim() || datos.cronogramaHoras === '0') {
+      if (!cronogramaHoras?.trim() || cronogramaHoras === '0') {
         mostrarModalError('Debe completarse la cantidad de horas del cronograma.');
         return false;
       }
-
-      // requiereCombustible y requiereChofer pueden ser false, no hace falta validarlos
       break;
 
     case 'otros':
-      // Ya se validaron detalleUso y objeto arriba
+      // Validaciones específicas para "otros", si hay que agregar alguna
+      // Si no hay ninguna nueva, al menos lo dejamos explícito
       break;
 
     default:
@@ -139,13 +147,16 @@ function validarModuloGeneral(datos) {
   return true;
 }
 
+
+ // REPARACION
+
 function validarModuloReparacion(datos) {
   if (!datos?.rubro) {
     mostrarModalError('Debe seleccionarse el rubro de reparación.');
     return false;
   }
 
-  if (datos.rubro === 'maquinaria' || datos.rubro === 'otros') {
+  if (datos.rubro === 'maquinaria') {
     // Validar objeto como JSON con al menos una unidad válida
     let unidades = [];
 
@@ -165,10 +176,19 @@ function validarModuloReparacion(datos) {
       return false;
     }
 
+    // NO se exige detalleReparacion en maquinaria
+
+  } else if (datos.rubro === 'otros') {
+    if (!datos.objeto?.trim()) {
+      mostrarModalError('Debe especificarse qué objeto se va a reparar.');
+      return false;
+    }
+
     if (!datos.detalleReparacion?.trim()) {
       mostrarModalError('Debe describirse el detalle de la reparación.');
       return false;
     }
+
   } else {
     mostrarModalError('El rubro seleccionado no es válido para reparación.');
     return false;
@@ -176,6 +196,7 @@ function validarModuloReparacion(datos) {
 
   return true;
 }
+
 
 
 
@@ -228,19 +249,59 @@ function validarModuloAdquisicion(datos) {
 
 // 🧩 SERVICIOS
 function validarModuloServicios(datos) {
-  if (!datos?.detalleServicio?.trim()) {
-    mostrarModalError('Debe completarse la descripción del servicio solicitado.');
+  if (!datos?.rubro) {
+    mostrarModalError('Debe seleccionarse el rubro del servicio.');
     return false;
   }
 
-  const campos = Object.values(datos || {});
-  if (campos.every(v => !v || v?.trim?.() === '')) {
-    mostrarModalError('Debe completarse al menos un campo en servicios.');
-    return false;
+  const rubro = datos.rubro;
+
+  switch (rubro) {
+    case 'mantenimiento':
+      if (!datos.detalleMantenimiento?.trim()) {
+        mostrarModalError('Debe completarse el detalle del mantenimiento.');
+        return false;
+      }
+      break;
+
+    case 'profesionales':
+      if (!datos.tipo?.trim()) {
+        mostrarModalError('Debe indicarse el tipo de servicio profesional.');
+        return false;
+      }
+
+      if (!datos.cronogramaDesde?.trim()) {
+        mostrarModalError('Debe completarse la fecha de inicio del cronograma.');
+        return false;
+      }
+
+      if (!datos.cronogramaHasta?.trim()) {
+        mostrarModalError('Debe completarse la fecha de finalización del cronograma.');
+        return false;
+      }
+
+      if (!datos.cronogramaHoras?.trim() || datos.cronogramaHoras === '0') {
+        mostrarModalError('Debe completarse la cantidad de horas del cronograma.');
+        return false;
+      }
+      break;
+
+    case 'otros':
+      if (!datos.detalleMantenimiento?.trim()) {
+        mostrarModalError('Debe completarse la descripción del servicio.');
+        return false;
+      }
+      break;
+
+    default:
+      mostrarModalError('El rubro seleccionado no es válido.');
+      return false;
   }
 
   return true;
 }
+
+
 
 // 🧩 MANTENIMIENTO
 function validarModuloMantenimiento(datos) {
@@ -257,12 +318,38 @@ function validarModuloMantenimiento(datos) {
 
 // 🧩 OBRAS
 function validarModuloObras(datos) {
-  if (!datos?.descripcionObra?.trim()) {
-    mostrarModalError('Debe completarse la descripción de la obra.');
+  const { tipo, obra, anexo } = datos || {};
+
+  if (!tipo) {
+    mostrarModalError('Debe seleccionarse el tipo de obra.');
     return false;
   }
+
+  switch (tipo) {
+    case 'nueva':
+      if (!anexo?.trim?.() || !anexo.toLowerCase().endsWith('.pdf')) {
+        mostrarModalError('Debe cargarse un archivo PDF como anexo para la obra nueva.');
+        return false;
+      }
+      break;
+
+    case 'existente':
+    case 'otra':
+      if (!obra?.trim()) {
+        mostrarModalError('Debe seleccionarse o indicarse la obra existente.');
+        return false;
+      }
+      break;
+
+    default:
+      mostrarModalError('El tipo de obra seleccionado no es válido.');
+      return false;
+  }
+
   return true;
 }
+
+
 
 // 🧩 PROFESIONALES
 function validarModuloProfesionales(datos) {
@@ -278,4 +365,18 @@ function parseFecha(fechaStr) {
   if (!fechaStr || !fechaStr.includes('/')) return null;
   const [dia, mes, anio] = fechaStr.split('/');
   return new Date(`${anio}-${mes}-${dia}T00:00:00`);
+}
+
+// MANTENIMIENTO DE ESCUELA
+
+function validarModuloMantenimientoDeEscuelas(datos) {
+  if (!datos?.escuela?.trim()) {
+    mostrarModalError('Debe indicarse la escuela que requiere mantenimiento.');
+    return false;
+  }
+  if (!datos?.detalleMantenimiento?.trim()) {
+    mostrarModalError('Debe describirse el tipo de mantenimiento requerido.');
+    return false;
+  }
+  return true;
 }
