@@ -139,6 +139,31 @@ function mostrarTituloDinamico(usuario) {
       const html = await response.text();
       document.getElementById('contenido-principal').innerHTML = html;
       console.log(`✅ Vista ${vista} cargada.`);
+
+      // Si la vista es mis_pedidos, cargar script externo
+      if (vista === 'mis_pedidos') {
+  console.log('📥 Cargando listadoPedidos.js...');
+  const script = document.createElement('script');
+  script.src = '../js/pedidos/listadoPedidos.js';
+  script.defer = true;
+  script.onload = () => {
+    console.log('✅ listadoPedidos.js cargado.');
+
+    const usuario = JSON.parse(localStorage.getItem('usuario'));
+    console.log('👤 Usuario:', usuario);
+    console.log('📌 Secretaría del usuario:', usuario.secretaria);
+
+    if (typeof inicializarListadoPedidos === 'function') {
+      inicializarListadoPedidos();
+    } else {
+      console.warn('⚠️ inicializarListadoPedidos no está definida.');
+    }
+  };
+  document.body.appendChild(script);
+}
+
+
+
   
       // 🛠️ SI LA VISTA ES formulario_base:
       if (vista === 'formulario_base') {
