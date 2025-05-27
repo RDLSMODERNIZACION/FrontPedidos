@@ -1,6 +1,7 @@
 import { generarIDTramite } from './idgenerator.js';
 import { validarDatosGenerales, validarModuloEspecifico } from './validaciones.js';
 import { mostrarModalExito, mostrarModalError } from './modalExito.js';
+import { obtenerAreaDestino } from './areaDestino.js';
 
 export async function enviarFormularioSinRespuesta(datos) {
   const boton = document.getElementById('btnEnviarFormulario');
@@ -21,9 +22,17 @@ export async function enviarFormularioSinRespuesta(datos) {
     const idTramite = generarIDTramite(datos.modulo);
     console.log("🆔 ID generado:", idTramite);
 
+    // Calcular área destino
+    const presupuesto = datos.modulo_general?.presupuesto || '0';
+    const areaDestino = obtenerAreaDestino(presupuesto);
+
     const datosCompletos = {
       ...datos,
-      idtramite: idTramite
+      idtramite: idTramite,
+      usuario: {
+        ...datos.usuario,
+        areaDestino: areaDestino
+      }
     };
 
     // 📨 PRIMER POST: Enviar todo con archivos
