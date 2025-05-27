@@ -8,7 +8,7 @@ const PORT = 3000;
 app.use(cors());
 app.use(express.json());
 
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw5dJU3HHBAl4O1v-XGhdHMG8-ock3ddOHPJjr7A1wNSlKTbjRTcT5KzjYWme1O18GD2Q/exec'; // ← PONÉ TU URL AQUÍ
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzHqiBJGOeDTmZ2M5Oy4xLG95Fwb4Uf4YH1kAn263jj8km0Y2ICYurNWxzJ39cp_c9xZg/exec'; // ← PONÉ TU URL AQUÍ
 
 app.post('/api/enviar-formulario', async (req, res) => {
   try {

@@ -34,6 +34,13 @@ export async function enviarFormularioSinRespuesta(datos) {
     const json = await respuesta.json();
     console.log("📥 Respuesta desde Apps Script (vía proxy):", json);
 
+    // Mostrar logs si están presentes
+    if (json.logs && Array.isArray(json.logs)) {
+      console.groupCollapsed("📝 Logs del backend");
+      json.logs.forEach(linea => console.log(linea));
+      console.groupEnd();
+    }
+
     if (json.estado !== 'ok') {
       mostrarModalError(json.mensaje || 'Error inesperado.');
       return;
