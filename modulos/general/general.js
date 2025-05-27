@@ -16,6 +16,7 @@ async function inicializarModuloGeneral() {
   const presupuesto2 = document.getElementById("presupuesto2");
 
   if (inputFecha) {
+    
     flatpickr(inputFecha, {
       dateFormat: "d/m/Y",
       locale: "es",

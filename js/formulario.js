@@ -11,7 +11,7 @@ import { obtenerDatosObras } from './modulos/obras.js';
 import { obtenerDatosReparacion } from './modulos/reparacion.js';
 import { obtenerDatosServicios } from './modulos/servicios.js';
 
-// ✅ REGISTRO DIRECTO DEL EVENTO (sin esperar DOMContentLoaded)
+// ✅ REGISTRO DIRECTO DEL EVENTO
 document.getElementById('btnEnviarFormulario').addEventListener('click', async function () {
   const boton = this;
   if (boton.disabled) return;
@@ -26,7 +26,7 @@ document.getElementById('btnEnviarFormulario').addEventListener('click', async f
     }
   };
 
-  // Detecta los módulos activos (general siempre va)
+  // Detectar módulos activos (general siempre va)
   const modulosActivos = Array.from(document.querySelectorAll('.modulo[data-modulo]')).filter(modulo => {
     const nombre = modulo.dataset.modulo;
     if (nombre === 'general') return true;
@@ -56,8 +56,6 @@ document.getElementById('btnEnviarFormulario').addEventListener('click', async f
 
   datosRecopilados.modulo = modulosActivos.find(m => m.dataset.modulo !== 'general')?.dataset.modulo || 'general';
 
-  console.log('🧪 JSON FINAL A ENVIAR:', JSON.stringify(datosRecopilados, null, 2));
-
   // 🛡️ Validaciones
   if (!validarDatosGenerales(datosRecopilados)) {
     boton.disabled = false;
@@ -70,6 +68,27 @@ document.getElementById('btnEnviarFormulario').addEventListener('click', async f
     boton.innerText = '📤 Enviar Formulario';
     return;
   }
+
+  // 🛠️ Ajustes específicos para el módulo GENERAL
+  if (datosRecopilados.modulo_general) {
+    const general = datosRecopilados.modulo_general;
+
+    if (general.presupuesto1 && general.presupuesto1.base64) {
+      general.archivo_presupuesto1 = general.presupuesto1;
+      general.presupuesto1 = 'SI';
+    } else {
+      general.presupuesto1 = 'NO';
+    }
+
+    if (general.presupuesto2 && general.presupuesto2.base64) {
+      general.archivo_presupuesto2 = general.presupuesto2;
+      general.presupuesto2 = 'SI';
+    } else {
+      general.presupuesto2 = 'NO';
+    }
+  }
+
+  console.log('🧪 JSON FINAL A ENVIAR:', datosRecopilados);
 
   // ✅ Envío final
   await enviarFormularioSinRespuesta(datosRecopilados);

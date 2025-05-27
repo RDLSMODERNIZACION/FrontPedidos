@@ -1,6 +1,8 @@
 import { archivoAObjetoBase64 } from '../helpers/base64.js';
 
 export async function obtenerDatosGeneral() {
+  console.log("🔍 Iniciando recolección de datos del módulo GENERAL...");
+
   const modulo = document.querySelector('[data-modulo="general"]');
   const datos = {};
 
@@ -31,24 +33,33 @@ export async function obtenerDatosGeneral() {
   const hoy = new Date().toISOString().slice(0, 10);
   const fechaPedido = datos.fechadesde;
 
+  console.log("📅 Fecha del pedido:", fechaPedido);
+  console.log("📅 Fecha actual:", hoy);
+
   if (fechaPedido && fechaPedido !== hoy) {
-    const archivo1 = await archivoAObjetoBase64(document.getElementById('presupuesto1'));
-    const archivo2 = await archivoAObjetoBase64(document.getElementById('presupuesto2'));
+    const input1 = document.getElementById('presupuesto1');
+    const input2 = document.getElementById('presupuesto2');
 
-    if (archivo1) {
-      datos.presupuesto1 = 'SI';
-      datos.presupuesto1_archivo = archivo1;
-    } else {
-      datos.presupuesto1 = '';
-    }
+    console.log("📂 Input presupuesto1:", input1);
+    console.log("📂 Input presupuesto2:", input2);
 
-    if (archivo2) {
-      datos.presupuesto2 = 'SI';
-      datos.presupuesto2_archivo = archivo2;
-    } else {
-      datos.presupuesto2 = '';
-    }
+    console.log("📄 Archivos seleccionados (1):", input1?.files?.length || 0);
+    console.log("📄 Archivos seleccionados (2):", input2?.files?.length || 0);
+
+    const archivo1 = await archivoAObjetoBase64(input1);
+    const archivo2 = await archivoAObjetoBase64(input2);
+
+    console.log("🧪 Resultado archivo 1:", archivo1);
+    console.log("🧪 Resultado archivo 2:", archivo2);
+
+    datos.presupuesto1 = archivo1 || '';
+    datos.presupuesto2 = archivo2 || '';
+
+    if (!archivo1) console.warn("⚠️ No se adjuntó presupuesto1");
+    if (!archivo2) console.warn("⚠️ No se adjuntó presupuesto2");
+
   } else {
+    console.log("📭 No se requieren presupuestos (fecha de hoy)");
     datos.presupuesto1 = '';
     datos.presupuesto2 = '';
   }
@@ -58,6 +69,7 @@ export async function obtenerDatosGeneral() {
   delete datos.fecha;
   delete datos.observaciones;
 
+  console.log("📦 Datos capturados de [general]:", datos);
   return datos;
 }
 
