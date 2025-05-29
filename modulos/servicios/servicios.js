@@ -3,11 +3,7 @@ console.log("✅ servicios.js cargado correctamente");
 function inicializarModuloServicios() {
   console.log("✅ Inicializando módulo Servicios...");
 
-  const switchMostrarServicios = document.getElementById('switchServicios'); // <- ID corregido
   const opcionesServicios = document.getElementById('opcionesServicios');
-  const ayudaServiciosBtn = document.getElementById('ayudaServiciosBtn');
-  const ayudaTextoServicios = document.getElementById('ayudaTextoServicios');
-
   const tipoServicioRadios = document.getElementsByName('tipoServicio');
 
   const seccionMantenimiento = document.getElementById('seccionMantenimiento');
@@ -15,7 +11,7 @@ function inicializarModuloServicios() {
   const seccionServicioOtros = document.getElementById('seccionServicioOtros');
 
   const detalleMantenimiento = document.getElementById('detalleMantenimiento');
-  const tipo = document.getElementById('tipo'); // <- este es el campo de tipoProfesional que ahora se llama tipo
+  const tipo = document.getElementById('tipo');
   const detalleServicioOtrosTexto = document.getElementById('detalleServicioOtrosTexto');
 
   const cronogramaDesde = document.getElementById('cronogramaDesde');
@@ -32,25 +28,9 @@ function inicializarModuloServicios() {
     if (detalleServicioOtrosTexto) detalleServicioOtrosTexto.removeAttribute('required');
   }
 
-  // Estado inicial
+  // Mostrar directamente al cargar
+  opcionesServicios.classList.remove('d-none');
   ocultarTodasLasSecciones();
-  opcionesServicios.classList.add('d-none');
-
-  // Mostrar/ocultar todo el módulo
-  switchMostrarServicios.addEventListener('change', () => {
-    if (switchMostrarServicios.checked) {
-      opcionesServicios.classList.remove('d-none');
-    } else {
-      opcionesServicios.classList.add('d-none');
-      ocultarTodasLasSecciones();
-      tipoServicioRadios.forEach(r => r.checked = false);
-    }
-  });
-
-  // Botón de ayuda
-  ayudaServiciosBtn.addEventListener('click', () => {
-    ayudaTextoServicios.classList.toggle('d-none');
-  });
 
   // Escuchar cambios en los radios
   tipoServicioRadios.forEach(radio => {

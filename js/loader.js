@@ -52,7 +52,7 @@ if (modulosSecretaria.includes('obras')) {
 const contenedor = document.getElementById('contenedor-modulos');
 contenedor.insertAdjacentHTML('beforeend', `
   <div class="mb-4" id="selector-de-modulos">
-    <label for="moduloSelector" class="form-label fw-bold text-secondary">📂 Seleccioná un tipo de trámite:</label>
+    <label for="moduloSelector" class="form-label fw-bold text-secondary">📂 Seleccioná un tipo de pedido:</label>
     <select id="moduloSelector" class="form-select">
       <option value="">-- Elegí un módulo --</option>
     </select>

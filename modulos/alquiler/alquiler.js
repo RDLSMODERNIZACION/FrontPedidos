@@ -3,11 +3,7 @@ console.log("✅ alquiler.js cargado correctamente");
 function inicializarModuloAlquiler() {
   console.log("✅ Inicializando módulo Alquiler...");
 
-  const switchMostrarAlquiler = document.getElementById('switchAlquiler');
   const opcionesAlquiler = document.getElementById('opcionesAlquiler');
-  const ayudaAlquilerBtn = document.getElementById('ayudaAlquilerBtn');
-  const ayudaTextoAlquiler = document.getElementById('ayudaTextoAlquiler');
-
   const tipoAlquilerRadios = document.getElementsByName('tipoAlquiler');
   const seccionEdificio = document.getElementById('seccionEdificioAlquiler');
   const seccionMaquinaria = document.getElementById('seccionMaquinariaAlquiler');
@@ -19,28 +15,15 @@ function inicializarModuloAlquiler() {
     return;
   }
 
-  opcionesAlquiler.classList.add('d-none');
+  // Mostrar directamente la sección de opciones
+  opcionesAlquiler.classList.remove('d-none');
+
+  // Ocultar todas las secciones específicas al inicio
   seccionEdificio.classList.add('d-none');
   seccionMaquinaria.classList.add('d-none');
   seccionOtros.classList.add('d-none');
 
-  switchMostrarAlquiler.addEventListener('change', () => {
-    if (switchMostrarAlquiler.checked) {
-      opcionesAlquiler.classList.remove('d-none');
-    } else {
-      opcionesAlquiler.classList.add('d-none');
-      seccionEdificio.classList.add('d-none');
-      seccionMaquinaria.classList.add('d-none');
-      seccionOtros.classList.add('d-none');
-      tipoAlquilerRadios.forEach(r => r.checked = false);
-      contenedorCronograma.innerHTML = '';
-    }
-  });
-
-  ayudaAlquilerBtn.addEventListener('click', () => {
-    ayudaTextoAlquiler.classList.toggle('d-none');
-  });
-
+  // Mostrar sección correspondiente al tipo seleccionado
   tipoAlquilerRadios.forEach(radio => {
     radio.addEventListener('change', async () => {
       contenedorCronograma.innerHTML = '';
@@ -123,9 +106,6 @@ async function cargarComponenteCronogramaAlquiler() {
 
 // ✅ Extraer y empaquetar datos como espera el backend
 function obtenerDatosModuloAlquiler() {
-  const activo = document.getElementById('switchAlquiler')?.checked;
-  if (!activo) return null;
-
   const tipoAlquiler = document.querySelector('input[name="tipoAlquiler"]:checked')?.value || '';
 
   const dias = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
