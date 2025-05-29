@@ -1,29 +1,15 @@
 <!-- /modulos/obras/obras.html -->
 <div class="card shadow-sm mb-4 modulo" data-modulo="obras">
-  <div class="card-body position-relative">
-
-    <!-- Switch y botón de ayuda -->
-    <div class="position-absolute top-0 end-0 mt-3 me-3 d-flex align-items-center">
-      <div class="form-check form-switch">
-        <input class="form-check-input" type="checkbox" id="switchObras" title="Mostrar/Ocultar formulario de obras">
-      </div>
-      <button type="button" class="btn btn-link p-0 ms-2" id="ayudaObrasBtn" style="font-size: 1.5rem;" title="¿Qué significa esto?">ℹ️</button>
-    </div>
+  <div class="card-body">
 
     <!-- Título -->
-    <h5 class="text-primary fw-bold mb-4">¿Qué tipo de obra desea solicitar?</h5>
+    <h5 class="text-primary fw-bold mb-4">Seleccione una obra</h5>
 
-    <!-- Texto de ayuda -->
-    <div id="ayudaTextoObras" class="alert alert-info d-none" role="alert">
-      <strong>¿Cómo funciona?</strong><br>
-      1️⃣ Encendé el interruptor para mostrar las opciones.<br>
-      2️⃣ Elegí si la obra es existente, nueva o describí otra.<br>
-      3️⃣ Se abrirán las preguntas correspondientes.<br><br>
-      🔵 Así podemos clasificar las obras más rápido.
-    </div>
+    <!-- Texto de ayuda visible siempre -->
 
-    <!-- Opciones de obra -->
-    <div id="opcionesObras" class="d-none">
+
+    <!-- Opciones de obra (visibles siempre) -->
+    <div id="opcionesObras">
 
       <!-- Radios -->
       <div class="mb-4">

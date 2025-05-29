@@ -13,27 +13,40 @@ function inicializarModuloObras() {
   const seccionObraNueva = document.getElementById('seccionObraNueva');
   const seccionObraOtra = document.getElementById('seccionObraOtra');
 
-  opcionesObras.classList.add('d-none');
-  seccionObraExistente.classList.add('d-none');
-  seccionObraNueva.classList.add('d-none');
-  seccionObraOtra.classList.add('d-none');
+  const esFijo = !switchMostrarObras;
 
-  switchMostrarObras?.addEventListener('change', () => {
-    if (switchMostrarObras.checked) {
-      opcionesObras.classList.remove('d-none');
-    } else {
-      opcionesObras.classList.add('d-none');
-      seccionObraExistente.classList.add('d-none');
-      seccionObraNueva.classList.add('d-none');
-      seccionObraOtra.classList.add('d-none');
-      radiosTipo.forEach(r => r.checked = false);
-    }
-  });
+  if (esFijo) {
+    console.log("🔒 Módulo 'obras' cargado en modo fijo (sin switch)");
 
-  ayudaObrasBtn?.addEventListener('click', () => {
-    ayudaTextoObras?.classList.toggle('d-none');
-  });
+    // Mostrar directamente el contenido
+    opcionesObras?.classList.remove('d-none');
+    ayudaTextoObras?.classList.remove('d-none');
 
+  } else {
+    // Modo con switch
+    opcionesObras?.classList.add('d-none');
+    seccionObraExistente?.classList.add('d-none');
+    seccionObraNueva?.classList.add('d-none');
+    seccionObraOtra?.classList.add('d-none');
+
+    switchMostrarObras?.addEventListener('change', () => {
+      if (switchMostrarObras.checked) {
+        opcionesObras.classList.remove('d-none');
+      } else {
+        opcionesObras.classList.add('d-none');
+        seccionObraExistente.classList.add('d-none');
+        seccionObraNueva.classList.add('d-none');
+        seccionObraOtra.classList.add('d-none');
+        radiosTipo.forEach(r => r.checked = false);
+      }
+    });
+
+    ayudaObrasBtn?.addEventListener('click', () => {
+      ayudaTextoObras?.classList.toggle('d-none');
+    });
+  }
+
+  // Escuchar cambios en los radio buttons
   radiosTipo.forEach(radio => {
     radio.addEventListener('change', async () => {
       const tipo = radio.value;
@@ -74,7 +87,7 @@ async function cargarListaObrasExistentes() {
   }
 }
 
-// 🌟 CORRECCIÓN: usamos data-modulo="obras" (plural) para coincidir con tu HTML
+// 🌟 Captura de datos
 window.obtenerDatosObras = function () {
   const modulo = document.querySelector('[data-modulo="obras"]');
   if (!modulo) {

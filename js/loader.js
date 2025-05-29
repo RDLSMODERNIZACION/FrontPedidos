@@ -39,15 +39,61 @@
     const config = JSON.parse(texto);
     const modulosSecretaria = config[secretaria]?.modulos || [];
 
+    
+
     await cargarModulo('general'); // Siempre cargar primero el módulo general
 
-    for (const modulo of modulosSecretaria) {
-      try {
-        await cargarModulo(modulo);
-      } catch (errorModulo) {
-        console.error(`⚠️ Error cargando módulo "${modulo}":`, errorModulo);
-      }
+// 👉 Cargar "obras" solo si está en la lista
+if (modulosSecretaria.includes('obras')) {
+  await cargarModulo('obras');
+}
+
+// 👉 Insertar selector de módulos luego de "general" y "obras"
+const contenedor = document.getElementById('contenedor-modulos');
+contenedor.insertAdjacentHTML('beforeend', `
+  <div class="mb-4" id="selector-de-modulos">
+    <label for="moduloSelector" class="form-label fw-bold text-secondary">📂 Seleccioná un tipo de trámite:</label>
+    <select id="moduloSelector" class="form-select">
+      <option value="">-- Elegí un módulo --</option>
+    </select>
+  </div>
+`);
+
+
+
+// 👉 Filtrar módulos que no son 'general' ni 'obras', normalizando todo a minúsculas
+const modulosDinamicos = modulosSecretaria
+  .map(m => m.toLowerCase())
+  .filter(m => m !== 'general' && m !== 'obras');
+
+console.log('🧪 Módulos dinámicos para el selector:', modulosDinamicos);
+
+
+// 👉 Esperar un frame para asegurarse de que #moduloSelector ya esté en el DOM
+await new Promise(resolve => setTimeout(resolve, 0));
+const select = document.getElementById('moduloSelector');
+
+for (const modulo of modulosDinamicos) {
+  const opt = document.createElement('option');
+  opt.value = modulo;
+  opt.textContent = capitalizarPrimeraLetra(modulo);
+  select.appendChild(opt);
+}
+
+
+// 👉 Evento para cargar módulo al seleccionar
+select.addEventListener('change', async (e) => {
+  const moduloSeleccionado = e.target.value;
+  if (moduloSeleccionado) {
+    e.target.disabled = true; // Opcional: bloquea el selector tras selección
+    try {
+      await cargarModulo(moduloSeleccionado);
+    } catch (errorModulo) {
+      console.error(`⚠️ Error cargando módulo "${moduloSeleccionado}":`, errorModulo);
     }
+  }
+});
+
 
     console.log('✅ Todos los módulos cargados exitosamente.');
 
@@ -70,6 +116,9 @@
     }
   }
 })();
+
+
+
 
 // 🚀 Funciones auxiliares
 
@@ -125,3 +174,4 @@ async function cargarModulo(nombreModulo) {
 function capitalizarPrimeraLetra(texto) {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
+
