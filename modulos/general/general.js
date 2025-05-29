@@ -33,6 +33,19 @@ async function inicializarModuloGeneral() {
     });
   }
 
+  
+// Verificar al iniciar si la fecha ya cargada es distinta a hoy
+const hoy = new Date();
+const seleccionada = flatpickr.parseDate(inputFecha.value, "d/m/Y");
+if (seleccionada) {
+  const esHoy = seleccionada.toDateString() === hoy.toDateString();
+  contenedorPresupuestos.classList.toggle("d-none", esHoy);
+  presupuesto1.required = !esHoy;
+  presupuesto2.required = !esHoy;
+}
+
+
+
   if (inputPeriodo) {
     flatpickr(inputPeriodo, {
       mode: "range",

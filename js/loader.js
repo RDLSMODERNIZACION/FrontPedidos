@@ -48,6 +48,8 @@ if (modulosSecretaria.includes('obras')) {
   await cargarModulo('obras');
 }
 
+
+
 // 👉 Insertar selector de módulos luego de "general" y "obras"
 const contenedor = document.getElementById('contenedor-modulos');
 contenedor.insertAdjacentHTML('beforeend', `
@@ -84,8 +86,13 @@ for (const modulo of modulosDinamicos) {
 // 👉 Evento para cargar módulo al seleccionar
 select.addEventListener('change', async (e) => {
   const moduloSeleccionado = e.target.value;
+  const contenedor = document.getElementById('contenedor-modulos');
+
   if (moduloSeleccionado) {
-    e.target.disabled = true; // Opcional: bloquea el selector tras selección
+    // 🧹 Eliminar módulos anteriores excepto "general" y "obras"
+    const modulosActivos = contenedor.querySelectorAll('.modulo:not([data-modulo="general"]):not([data-modulo="obras"])');
+    modulosActivos.forEach(m => m.remove());
+
     try {
       await cargarModulo(moduloSeleccionado);
     } catch (errorModulo) {
@@ -93,6 +100,7 @@ select.addEventListener('change', async (e) => {
     }
   }
 });
+
 
 
     console.log('✅ Todos los módulos cargados exitosamente.');
