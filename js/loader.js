@@ -48,6 +48,11 @@ if (modulosSecretaria.includes('obras')) {
   await cargarModulo('obras');
 }
 
+// 👉 Cargar "mantenimientodeescuelas" solo si está en la lista
+if (modulosSecretaria.includes('mantenimientodeescuelas')) {
+  await cargarModulo('mantenimientodeescuelas');
+}
+
 
 
 // 👉 Insertar selector de módulos luego de "general" y "obras"
@@ -63,12 +68,18 @@ contenedor.insertAdjacentHTML('beforeend', `
 
 
 
-// 👉 Filtrar módulos que no son 'general' ni 'obras', normalizando todo a minúsculas
+// 👉 Filtrar módulos que no son 'general', 'obras' ni 'mantenimientodeescuelas'
+const modulosExcluidos = new Set(['general', 'obras', 'mantenimientodeescuelas']);
+
 const modulosDinamicos = modulosSecretaria
   .map(m => m.toLowerCase())
-  .filter(m => m !== 'general' && m !== 'obras');
+  .filter(m => !modulosExcluidos.has(m));
 
-console.log('🧪 Módulos dinámicos para el selector:', modulosDinamicos);
+console.log('📦 Módulos disponibles para esta secretaría:', modulosSecretaria);
+console.log('🛠️  Excluidos de dinámica:', Array.from(modulosExcluidos));
+console.log('✅ Módulos dinámicos reales:', modulosDinamicos);
+
+
 
 
 // 👉 Esperar un frame para asegurarse de que #moduloSelector ya esté en el DOM
@@ -89,9 +100,12 @@ select.addEventListener('change', async (e) => {
   const contenedor = document.getElementById('contenedor-modulos');
 
   if (moduloSeleccionado) {
-    // 🧹 Eliminar módulos anteriores excepto "general" y "obras"
-    const modulosActivos = contenedor.querySelectorAll('.modulo:not([data-modulo="general"]):not([data-modulo="obras"])');
-    modulosActivos.forEach(m => m.remove());
+    // 🧹 Eliminar módulos anteriores excepto "general", "obras" y "mantenimientodeescuelas"
+const modulosActivos = contenedor.querySelectorAll(
+  '.modulo:not([data-modulo="general"]):not([data-modulo="obras"]):not([data-modulo="mantenimientodeescuelas"])'
+);
+modulosActivos.forEach(m => m.remove());
+
 
     try {
       await cargarModulo(moduloSeleccionado);
@@ -182,4 +196,5 @@ async function cargarModulo(nombreModulo) {
 function capitalizarPrimeraLetra(texto) {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
+
 

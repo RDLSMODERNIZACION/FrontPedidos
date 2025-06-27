@@ -11,6 +11,10 @@ import { obtenerDatosObras } from './modulos/obras.js';
 import { obtenerDatosReparacion } from './modulos/reparacion.js';
 import { obtenerDatosServicios } from './modulos/servicios.js';
 
+
+
+
+
 // ✅ REGISTRO DIRECTO DEL EVENTO
 document.getElementById('btnEnviarFormulario').addEventListener('click', async function () {
   const boton = this;
@@ -27,12 +31,35 @@ document.getElementById('btnEnviarFormulario').addEventListener('click', async f
   };
 
   // Detectar módulos activos (general siempre va)
-  const modulosActivos = Array.from(document.querySelectorAll('.modulo[data-modulo]')).filter(modulo => {
-    const nombre = modulo.dataset.modulo;
-    if (nombre === 'general') return true;
-    const idSwitch = `switch${nombre.charAt(0).toUpperCase()}${nombre.slice(1)}`;
-    return document.getElementById(idSwitch)?.checked;
-  });
+  const select = document.getElementById('moduloSelector');
+const moduloSeleccionado = select?.value || '';
+
+const modulosActivos = [];
+
+// Siempre incluir GENERAL
+const moduloGeneral = document.querySelector('[data-modulo="general"]');
+if (moduloGeneral) modulosActivos.push(moduloGeneral);
+
+// Siempre incluir OBRAS si está en el DOM (no depende de switch)
+const moduloObras = document.querySelector('[data-modulo="obras"]');
+if (moduloObras) modulosActivos.push(moduloObras);
+
+// Incluir módulo seleccionado del selector
+if (moduloSeleccionado) {
+  const moduloEspecifico = document.querySelector(`[data-modulo="${moduloSeleccionado}"]`);
+  if (moduloEspecifico) modulosActivos.push(moduloEspecifico);
+}
+
+// Incluir Mantenimiento de Escuelas solo si el switch está activo
+const moduloMantenimiento = document.querySelector('[data-modulo="mantenimientodeescuelas"]');
+const switchMantenimiento = document.getElementById('switchMantenimientodeescuelas');
+if (moduloMantenimiento && switchMantenimiento?.checked) {
+  modulosActivos.push(moduloMantenimiento);
+}
+
+
+
+
 
   for (const divModulo of modulosActivos) {
     const nombre = divModulo.dataset.modulo;

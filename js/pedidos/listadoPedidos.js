@@ -1,30 +1,10 @@
-function inicializarListadoPedidos() {
-  const usuario = JSON.parse(localStorage.getItem('usuario'));
+async function inicializarListadoPedidos() {
+  const usuario = JSON.parse(localStorage.getItem("usuario"));
   if (!usuario) return;
 
-  const pedidos = [
-    {
-      id: 'GE-20250523-001',
-      servicio: 'Adquisición',
-      estado: 'Pendiente',
-      fecha: '2025-05-23',
-      secretaria: 'Secretaría de Hacienda'
-    },
-    {
-      id: 'GE-20250522-002',
-      servicio: 'Reparación',
-      estado: 'Aprobado',
-      fecha: '2025-05-22',
-      secretaria: 'Obras Públicas'
-    },
-    {
-      id: 'GE-20250521-003',
-      servicio: 'Servicios',
-      estado: 'Pendiente',
-      fecha: '2025-05-21',
-      secretaria: 'SECRETARÍA DE HACIENDA'
-    }
-  ];
+  const response = await fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vQbenShUkUQFJA7lVcFFZaXXU0nTZBwWmKK2DlURXEQGqkVwrVsCqn3KMQAsUCiant96FovjFh_35jc/pub?gid=0&single=true&output=csv");
+  const texto = await response.text();
+  const pedidos = parseCSV(texto);
 
   const cuerpo = document.getElementById('tabla-mis-pedidos');
   if (!cuerpo) {
@@ -33,8 +13,8 @@ function inicializarListadoPedidos() {
   }
 
   const pedidosFiltrados = pedidos
-    .filter(p => normalizar(p.secretaria) === normalizar(usuario.secretaria))
-    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    .filter(p => normalizar(p.Secretaria) === normalizar(usuario.secretaria))
+    .sort((a, b) => new Date(b["FECHA ACTUAL"]) - new Date(a["FECHA ACTUAL"]));
 
   cuerpo.innerHTML = '';
 
@@ -44,30 +24,16 @@ function inicializarListadoPedidos() {
     pedidosFiltrados.forEach(p => {
       cuerpo.innerHTML += `
         <tr>
-          <td>${p.id}</td>
-          <td>${p.servicio}</td>
-          <td>${p.estado}</td>
-          <td>${formatearFecha(p.fecha)}</td>
+          <td>${p.IDTRAMITE}</td>
+          <td>${p.MODULO}</td>
+          <td>${p["ESTADO APROBACION"]}</td>
+          <td>${formatearFecha(p["FECHA ACTUAL"])}</td>
           <td>
-            <button class="btn btn-sm btn-primary btn-ver-pedido" data-id="${p.id}">👁 Ver</button>
+            <button class="btn btn-sm btn-primary btn-ver-pedido" data-id="${p.IDTRAMITE}">👁 Ver</button>
           </td>
         </tr>
       `;
     });
-  }
-
-  function formatearFecha(fechaISO) {
-    const f = new Date(fechaISO);
-    return f.toLocaleDateString('es-AR');
-  }
-
-  function normalizar(texto) {
-    return texto
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, '')  // quita tildes
-      .replace(/\s+/g, ' ')             // normaliza espacios múltiples
-      .trim();
   }
 
   document.addEventListener('click', function (e) {
@@ -77,4 +43,24 @@ function inicializarListadoPedidos() {
       window.location.href = `pedidos/detalle.html?id=${encodeURIComponent(id)}`;
     }
   });
+
+  function normalizar(texto) {
+    return texto?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim() || '';
+  }
+
+  function formatearFecha(fechaISO) {
+    const f = new Date(fechaISO);
+    return isNaN(f) ? fechaISO : f.toLocaleDateString('es-AR');
+  }
+
+  function parseCSV(texto) {
+    const lineas = texto.trim().split("\n");
+    const encabezado = lineas[0].split(",").map(e => e.trim());
+    return lineas.slice(1).map(linea => {
+      const valores = linea.split(",").map(e => e.trim());
+      const obj = {};
+      encabezado.forEach((col, i) => obj[col] = valores[i]);
+      return obj;
+    });
+  }
 }

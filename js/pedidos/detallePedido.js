@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const params = new URLSearchParams(window.location.search);
   const id = params.get('id');
 
@@ -9,34 +9,17 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  cargarDetallePedido(id);
+  await cargarDetallePedido(id);
 });
 
-function cargarDetallePedido(id) {
-  const pedidos = [
-    {
-      id: 'GE-20250523-001',
-      servicio: 'Adquisición',
-      estado: 'Pendiente',
-      secretaria: 'Educación',
-      fecha: '2025-05-23',
-      descripcion: 'Compra de materiales escolares.',
-      observaciones: 'Urgente para inicio de ciclo lectivo.',
-      archivo: 'presupuesto.pdf'
-    },
-    {
-      id: 'GE-20250522-002',
-      servicio: 'Reparación',
-      estado: 'Aprobado',
-      secretaria: 'Obras Públicas',
-      fecha: '2025-05-22',
-      descripcion: 'Reparación eléctrica en Escuela 45.',
-      observaciones: '',
-      archivo: null
-    }
-  ];
+async function cargarDetallePedido(id) {
+  const usuario = JSON.parse(localStorage.getItem("usuario"));
 
-  const pedido = pedidos.find(p => p.id === id);
+  const response = await fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vQbenShUkUQFJA7lVcFFZaXXU0nTZBwWmKK2DlURXEQGqkVwrVsCqn3KMQAsUCiant96FovjFh_35jc/pub?gid=0&single=true&output=csv");
+  const texto = await response.text();
+
+  const pedidos = parseCSV(texto);
+  const pedido = pedidos.find(p => p.IDTRAMITE === id);
 
   if (!pedido) {
     document.getElementById('info-pedido').innerHTML = `
@@ -45,44 +28,59 @@ function cargarDetallePedido(id) {
     return;
   }
 
+  const carpetaURL = pedido["Carpeta Drive URL"]?.trim();
+  const linkHTML = carpetaURL
+    ? `<a href="${carpetaURL}" target="_blank">📎 Ver carpeta</a>`
+    : '—';
+
   const infoHTML = `
     <table class="table table-bordered">
-      <tr><th>ID Trámite</th><td>${pedido.id}</td></tr>
-      <tr><th>Servicio</th><td>${pedido.servicio}</td></tr>
-      <tr><th>Estado</th><td>${pedido.estado}</td></tr>
-      <tr><th>Secretaría</th><td>${pedido.secretaria}</td></tr>
-      <tr><th>Fecha</th><td>${formatearFecha(pedido.fecha)}</td></tr>
-      <tr><th>Descripción</th><td>${pedido.descripcion}</td></tr>
-      <tr><th>Observaciones</th><td>${pedido.observaciones || '—'}</td></tr>
-      <tr><th>Archivo</th><td>${
-        pedido.archivo 
-          ? `<a href="../../archivos/${pedido.archivo}" target="_blank">📎 Ver archivo</a>` 
-          : '—'
-      }</td></tr>
+      <tr><th>ID Trámite</th><td>${pedido.IDTRAMITE}</td></tr>
+      <tr><th>Servicio</th><td>${pedido.MODULO}</td></tr>
+      <tr><th>Estado</th><td>${pedido["ESTADO APROBACION"]}</td></tr>
+      <tr><th>Secretaría</th><td>${pedido.Secretaria}</td></tr>
+      <tr><th>Fecha</th><td>${formatearFecha(pedido["FECHA ACTUAL"])}</td></tr>
+      <tr><th>Área</th><td>${pedido.AREA || '—'}</td></tr>
+      <tr><th>Archivo</th><td>${linkHTML}</td></tr>
     </table>
   `;
 
   document.getElementById('info-pedido').innerHTML = infoHTML;
 
-  // Mostrar botones solo si estado === Pendiente
-  if (pedido.estado === 'Pendiente') {
+  // Solo muestra botones si la Secretaría es Economía y el estado es Pendiente
+  const puedeAprobar = usuario.secretaria?.toLowerCase().includes("economía");
+  if (pedido["ESTADO APROBACION"] === "Pendiente" && puedeAprobar) {
     document.getElementById('acciones-pedido').style.display = 'flex';
   }
 }
 
 function formatearFecha(fecha) {
   const f = new Date(fecha);
-  return f.toLocaleDateString('es-AR');
+  return isNaN(f) ? fecha : f.toLocaleDateString('es-AR');
+}
+
+function parseCSV(texto) {
+  const lineas = texto.trim().split("\n");
+  const encabezado = lineas[0].split(",").map(e => e.trim());
+  return lineas.slice(1).map(linea => {
+    const valores = linea.split(",").map(e => e.trim());
+    const obj = {};
+    encabezado.forEach((col, i) => {
+      obj[col] = valores[i];
+    });
+    return obj;
+  });
 }
 
 function aprobarPedido() {
   alert('✅ Pedido aprobado. (Simulado)');
-  // acá conectarías con API o actualizarías estado en backend/Sheets
+  // Aquí podrías enviar el cambio a un backend (Apps Script o API)
 }
 
 function rechazarPedido() {
   const confirmacion = confirm('¿Seguro que querés rechazar este pedido?');
   if (confirmacion) {
     alert('❌ Pedido rechazado. (Simulado)');
+    // Aquí podrías enviar el cambio a un backend
   }
 }
