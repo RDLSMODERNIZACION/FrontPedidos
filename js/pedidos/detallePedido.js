@@ -1,3 +1,6 @@
+let idPedidoGlobal = null;
+
+
 document.addEventListener('DOMContentLoaded', async () => {
   const params = new URLSearchParams(window.location.search);
   const id = params.get('id');
@@ -8,6 +11,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     `;
     return;
   }
+
+  idPedidoGlobal = id;
+
 
   await cargarDetallePedido(id);
 });
@@ -33,26 +39,46 @@ async function cargarDetallePedido(id) {
     ? `<a href="${carpetaURL}" target="_blank">📎 Ver carpeta</a>`
     : '—';
 
-  const infoHTML = `
-    <table class="table table-bordered">
-      <tr><th>ID Trámite</th><td>${pedido.IDTRAMITE}</td></tr>
-      <tr><th>Servicio</th><td>${pedido.MODULO}</td></tr>
-      <tr><th>Estado</th><td>${pedido["ESTADO APROBACION"]}</td></tr>
-      <tr><th>Secretaría</th><td>${pedido.Secretaria}</td></tr>
-      <tr><th>Fecha</th><td>${formatearFecha(pedido["FECHA ACTUAL"])}</td></tr>
-      <tr><th>Área</th><td>${pedido.AREA || '—'}</td></tr>
-      <tr><th>Archivo</th><td>${linkHTML}</td></tr>
-    </table>
-  `;
+ const infoHTML = `
+  <table class="table table-bordered">
+    <tr><th>ID Trámite</th><td>${pedido.IDTRAMITE}</td></tr>
+    <tr><th>Servicio</th><td>${pedido.MODULO}</td></tr>
+    <tr><th>Estado</th><td id="estado-pedido">${pedido["ESTADO APROBACION"]}</td></tr>
+    <tr><th>Secretaría</th><td>${pedido.Secretaria}</td></tr>
+    <tr><th>Fecha</th><td>${formatearFecha(pedido["FECHA ACTUAL"])}</td></tr>
+    <tr><th>Archivo</th><td>${linkHTML}</td></tr>
+  </table>
+`;
+
 
   document.getElementById('info-pedido').innerHTML = infoHTML;
 
-  // Solo muestra botones si la Secretaría es Economía y el estado es Pendiente
-  const puedeAprobar = usuario.secretaria?.toLowerCase().includes("economía");
-  if (pedido["ESTADO APROBACION"] === "Pendiente" && puedeAprobar) {
-    document.getElementById('acciones-pedido').style.display = 'flex';
-  }
+  
+  // Solo muestra botones si la Secretaría es Economía o Juzgado de Faltas y el estado es Pendiente
+const secretaria = (usuario.secretaria || "").toLowerCase().trim();
+console.log("🔍 Secretaría detectada:", secretaria);
+
+const estado = (pedido["ESTADO APROBACION"] || "").toLowerCase().trim();
+console.log("📄 Estado del pedido:", estado);
+
+// Secretarías que pueden aprobar
+const secretariasPermitidas = ["economía", "juzgado de faltas"];
+
+// Validar permiso
+const puedeAprobar = secretariasPermitidas.includes(secretaria);
+console.log("✅ ¿Puede aprobar?", puedeAprobar);
+
+if (estado === "pendiente" && puedeAprobar) {
+  document.getElementById('acciones-pedido').style.display = 'flex';
+  console.log("✅ Botones mostrados");
+} else {
+  console.log("❌ Botones ocultos (estado o secretaría no válida)");
 }
+
+}
+
+
+
 
 function formatearFecha(fecha) {
   const f = new Date(fecha);
