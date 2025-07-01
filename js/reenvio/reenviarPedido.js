@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', async () => {
-  await esperarEstadoPedido(); // Espera hasta que se cargue el estado del DOM
+  await esperarEstadoPedido(); // Espera que se cargue el estado del DOM
 
   const estadoElem = document.getElementById("estado-pedido");
   const estado = estadoElem?.innerText.trim().toLowerCase();
@@ -27,10 +27,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
+      const usuario = JSON.parse(localStorage.getItem("usuario"));
+      if (!usuario || !usuario.secretaria) {
+        alert("❌ No se pudo obtener la secretaría del usuario.");
+        return;
+      }
+
+      // Normaliza el nombre de la secretaría para formar el nombre del archivo
+      const secretaria = usuario.secretaria.toLowerCase().replace(/\s+/g, '');
+
       localStorage.setItem("modoReenvio", "true");
       localStorage.setItem("idReenvio", idPedidoGlobal);
-      window.location.href = `../../vistas/pedidos/const secretaria = (usuario.secretaria .html?modulo=formulario&id=${idPedidoGlobal}&modo=editar`;
 
+      // Redirección al formulario correspondiente
+      window.location.href = `../../vistas/pedidos/${secretaria}.html?modulo=formulario&id=${idPedidoGlobal}&modo=editar`;
     });
   }
 });
