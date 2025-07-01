@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reenvío de Pedido Observado</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    body {
+      background-color: #f8f9fa;
+    }
+    #contenedor-modulos {
+      margin-top: 2rem;
+    }
+    .reenviar-banner {
+      background-color: #fff3cd;
+      border-left: 5px solid #ffc107;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="mt-4 text-center">🔁 Reenvío de Pedido Observado</h1>
+
+    <div class="reenviar-banner">
+      <strong>Atención:</strong> Estás reenviando un pedido previamente observado. Corregí los datos necesarios y reenviá para que vuelva a ser evaluado.
+    </div>
+
+    <div id="contenedor-modulos"></div>
+
+    <div class="text-end mt-4">
+      <button id="btnReenviarFinal" class="btn btn-success">📤 Reenviar Pedido</button>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="../../js/loader.js"></script>
+  <script src="../../js/reenvio/reenvio.js"></script>
+</body>
+</html>

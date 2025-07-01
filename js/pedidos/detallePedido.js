@@ -101,7 +101,7 @@ async function cargarDetallePedido(id) {
         const confirmacion = confirm("Este pedido fue observado. ¿Deseás reenviarlo con modificaciones?");
         if (!confirmacion) return;
         localStorage.setItem("modoReenvio", "true");
-        window.location.href = `../../formulario/index.html?id=${id}&modo=editar`;
+        window.location.href = `../../vistas/pedidos/reenvio.html?id=${id}&modo=editar`;
       });
     }
   }

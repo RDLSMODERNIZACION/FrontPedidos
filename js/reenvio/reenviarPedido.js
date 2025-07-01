@@ -29,7 +29,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       localStorage.setItem("modoReenvio", "true");
       localStorage.setItem("idReenvio", idPedidoGlobal);
-      window.location.href = `../../formulario/index.html?id=${idPedidoGlobal}&modo=editar`;
+      window.location.href = `../../vistas/pedidos/const secretaria = (usuario.secretaria .html?modulo=formulario&id=${idPedidoGlobal}&modo=editar`;
+
     });
   }
 });
