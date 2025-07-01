@@ -13,6 +13,21 @@
 
     const secretaria = usuario.secretaria;
     const nombre = usuario.nombre;
+    
+    // Detectar si se abrió un formulario en modo observación para reenvío
+const urlParams = new URLSearchParams(window.location.search);
+const modo = urlParams.get("modo");
+const id = urlParams.get("id");
+
+if (modo === "editar" && id) {
+  localStorage.setItem("modoReenvio", "true");
+  localStorage.setItem("idReenvio", id);
+} else {
+  // Limpia el modo si no corresponde
+  localStorage.removeItem("modoReenvio");
+  localStorage.removeItem("idReenvio");
+}
+
 
     await esperarElemento('#info-nombre');
     await esperarElemento('#info-secretaria');

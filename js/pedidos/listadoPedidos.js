@@ -2,11 +2,10 @@ async function inicializarListadoPedidos() {
   const usuario = JSON.parse(localStorage.getItem("usuario"));
   if (!usuario) return;
 
-  const url = `https://docs.google.com/spreadsheets/d/e/2PACX-1vQbenShUkUQFJA7lVcFFZaXXU0nTZBwWmKK2DlURXEQGqkVwrVsCqn3KMQAsUCiant96FovjFh_35jc/pub?gid=0&single=true&output=csv&t=${Date.now()}`;
+const url = `https://script.google.com/macros/s/AKfycbxPNiF3miRa9Bv0JppagI8X7RJxNVGJepQo-kg3pIZpBYgLdSn11hGlK-HOnmBUegzC3Q/exec?t=${Date.now()}`;
 const response = await fetch(url, { cache: 'no-store' });
+const pedidos = await response.json();
 
-  const texto = await response.text();
-  const pedidos = parseCSV(texto);
 
   const cuerpo = document.getElementById('tabla-mis-pedidos');
   if (!cuerpo) {

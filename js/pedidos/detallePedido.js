@@ -1,6 +1,5 @@
 let idPedidoGlobal = null;
 
-
 document.addEventListener('DOMContentLoaded', async () => {
   const params = new URLSearchParams(window.location.search);
   const id = params.get('id');
@@ -13,18 +12,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   idPedidoGlobal = id;
-
-
   await cargarDetallePedido(id);
 });
 
 async function cargarDetallePedido(id) {
   const usuario = JSON.parse(localStorage.getItem("usuario"));
 
-  const response = await fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vQbenShUkUQFJA7lVcFFZaXXU0nTZBwWmKK2DlURXEQGqkVwrVsCqn3KMQAsUCiant96FovjFh_35jc/pub?gid=0&single=true&output=csv");
-  const texto = await response.text();
+  const response = await fetch("https://script.google.com/macros/s/AKfycbxPNiF3miRa9Bv0JppagI8X7RJxNVGJepQo-kg3pIZpBYgLdSn11hGlK-HOnmBUegzC3Q/exec");
+  const pedidos = await response.json();
 
-  const pedidos = parseCSV(texto);
   const pedido = pedidos.find(p => p.IDTRAMITE === id);
 
   if (!pedido) {
@@ -39,43 +35,78 @@ async function cargarDetallePedido(id) {
     ? `<a href="${carpetaURL}" target="_blank">📎 Ver carpeta</a>`
     : '—';
 
- const infoHTML = `
-  <table class="table table-bordered">
-    <tr><th>ID Trámite</th><td>${pedido.IDTRAMITE}</td></tr>
-    <tr><th>Servicio</th><td>${pedido.MODULO}</td></tr>
-    <tr><th>Estado</th><td id="estado-pedido">${pedido["ESTADO APROBACION"]}</td></tr>
-    <tr><th>Secretaría</th><td>${pedido.Secretaria}</td></tr>
-    <tr><th>Fecha</th><td>${formatearFecha(pedido["FECHA ACTUAL"])}</td></tr>
-    <tr><th>Archivo</th><td>${linkHTML}</td></tr>
-  </table>
-`;
-
+  const infoHTML = `
+    <table class="table table-bordered">
+      <tr><th>ID Trámite</th><td>${pedido.IDTRAMITE}</td></tr>
+      <tr><th>Servicio</th><td>${pedido.MODULO}</td></tr>
+      <tr><th>Estado</th><td id="estado-pedido">${pedido["ESTADO APROBACION"]}</td></tr>
+      <tr><th>Secretaría</th><td>${pedido.Secretaria}</td></tr>
+      <tr><th>Fecha</th><td>${formatearFecha(pedido["FECHA ACTUAL"])}</td></tr>
+      <tr><th>Archivo</th><td>${linkHTML}</td></tr>
+    </table>
+  `;
 
   document.getElementById('info-pedido').innerHTML = infoHTML;
 
-  
-  // Solo muestra botones si la Secretaría es Economía o Juzgado de Faltas y el estado es Pendiente
-const secretaria = (usuario.secretaria || "").toLowerCase().trim();
-console.log("🔍 Secretaría detectada:", secretaria);
+  const secretaria = (usuario.secretaria || "").toLowerCase().trim();
+  const estado = (pedido["ESTADO APROBACION"] || "").toLowerCase().trim();
+  console.log("🔍 Secretaría detectada:", secretaria);
+  console.log("📄 Estado del pedido:", estado);
 
-const estado = (pedido["ESTADO APROBACION"] || "").toLowerCase().trim();
-console.log("📄 Estado del pedido:", estado);
+  const secretariasPermitidas = ["economía", "juzgado de faltas"];
+  const puedeAprobar = secretariasPermitidas.includes(secretaria);
 
-// Secretarías que pueden aprobar
-const secretariasPermitidas = ["economía", "juzgado de faltas"];
+  if (estado === "pendiente" && puedeAprobar) {
+    document.getElementById('acciones-pedido').style.display = 'flex';
+    console.log("✅ Botones mostrados");
+  } else {
+    console.log("❌ Botones ocultos (estado o secretaría no válida)");
+  }
 
-// Validar permiso
-const puedeAprobar = secretariasPermitidas.includes(secretaria);
-console.log("✅ ¿Puede aprobar?", puedeAprobar);
+  // Mostrar motivo si corresponde
+  const motivo = pedido["MOTIVO OBSERVACION"]?.trim();
 
-if (estado === "pendiente" && puedeAprobar) {
-  document.getElementById('acciones-pedido').style.display = 'flex';
-  console.log("✅ Botones mostrados");
-} else {
-  console.log("❌ Botones ocultos (estado o secretaría no válida)");
+ if ((estado === "observado" || estado === "rechazado") && motivo) {
+  const contenedorMotivo = document.getElementById("motivo-observacion");
+  if (contenedorMotivo) {
+    const clase = estado === "rechazado" ? "alert-danger" : "alert-warning";
+    const botonReenviar = estado === "observado" ? `
+  <div class="text-end" style="min-width: 150px;">
+    <button id="btn-reenviar" class="btn btn-outline-secondary btn-sm">🔄 Reenviar pedido</button>
+  </div>
+
+
+
+    ` : "";
+  contenedorMotivo.innerHTML = `
+  <div class="alert ${clase} d-flex justify-content-between align-items-start flex-wrap mt-3 p-4" style="border-left: 6px solid #ff9800; background-color: #fff8e1;">
+    <div class="me-3" style="flex: 1;">
+      <div class="d-flex align-items-center mb-2">
+        <span style="font-size: 1.5rem; margin-right: 0.5rem;">📝</span>
+        <strong style="font-size: 1.1rem;">Motivo de ${estado}:</strong>
+      </div>
+      <div style="white-space: pre-wrap; font-size: 1rem; color: #333;">
+        ${motivo}
+      </div>
+    </div>
+    ${botonReenviar}
+  </div>
+`;
+
+
+    // Agregá el evento si el botón existe
+    const btnReenviar = document.getElementById("btn-reenviar");
+    if (btnReenviar) {
+      btnReenviar.addEventListener("click", () => {
+        const confirmacion = confirm("Este pedido fue observado. ¿Deseás reenviarlo con modificaciones?");
+        if (!confirmacion) return;
+        localStorage.setItem("modoReenvio", "true");
+        window.location.href = `../../formulario/index.html?id=${id}&modo=editar`;
+      });
+    }
+  }
 }
 
-}
 
 
 
@@ -100,13 +131,11 @@ function parseCSV(texto) {
 
 function aprobarPedido() {
   alert('✅ Pedido aprobado. (Simulado)');
-  // Aquí podrías enviar el cambio a un backend (Apps Script o API)
 }
 
 function rechazarPedido() {
   const confirmacion = confirm('¿Seguro que querés rechazar este pedido?');
   if (confirmacion) {
     alert('❌ Pedido rechazado. (Simulado)');
-    // Aquí podrías enviar el cambio a un backend
-  }
-}
+   }
+} }

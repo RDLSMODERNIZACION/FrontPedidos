@@ -52,6 +52,14 @@
     <button class="btn btn-danger" onclick="mostrarCampoMotivo('Rechazado')">❌ Rechazar</button>
   </div>
 
+  <!-- Botón para reenviar -->
+<!-- Motivo de observación con botón integrado -->
+<div id="motivo-observacion" style="margin-top: 1rem;"></div>
+
+
+
+
+
   <!-- Campo para escribir el motivo si es observado/rechazado -->
   <div id="campo-motivo" style="display:none; margin-top:1rem;">
     <label for="input-motivo" class="form-label">Motivo de observación o rechazo:</label>
@@ -59,7 +67,7 @@
     <button class="btn btn-primary mt-2" onclick="enviarConMotivo()">📨 Enviar con motivo</button>
   </div>
 
-  <div id="motivo-observacion" style="margin-top: 10px; font-weight: bold; color: #b71c1c;"></div>
+  
 </div>
       </div>
     </div>
@@ -70,5 +78,7 @@
   <!-- Orden: primero detalle (define idPedidoGlobal), luego acciones (usa esa variable) -->
   <script src="../../js/pedidos/detallePedido.js"></script>
   <script src="../../js/pedidos/accionesPedido.js"></script>
+  <!-- Al final del body -->
+<script src="../../js/pedidos/reenviarPedido.js"></script>
 </body>
 </html>
