@@ -60,6 +60,15 @@
         await new Promise(resolve => {
           script.onload = () => {
             console.log(`✅ Módulo ${modulo} cargado`);
+
+            const nombreFuncion = `inicializarModulo${capitalizarPrimeraLetra(modulo)}`;
+            if (typeof window[nombreFuncion] === 'function') {
+              window[nombreFuncion]();
+              console.log(`🚀 ${nombreFuncion}() ejecutado`);
+            } else {
+              console.warn(`⚠️ No se encontró ${nombreFuncion}() para inicializar ${modulo}`);
+            }
+
             resolve();
           };
         });
@@ -69,7 +78,6 @@
       }
     }
 
-    // 📌 Aquí cuando ya todos los módulos terminaron de cargarse:
     console.log("✅ Todos los módulos cargados y listos.");
     window.todosLosModulosListos = true;
 
@@ -81,3 +89,7 @@
     }
   }
 })();
+
+function capitalizarPrimeraLetra(texto) {
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
