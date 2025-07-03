@@ -1,6 +1,5 @@
 // 📄 alquiler.js
-
-function obtenerDatosAlquiler() {
+export function obtenerDatosAlquiler() {
   const modulo = document.querySelector('[data-modulo="alquiler"]');
   if (!modulo) {
     console.warn("❌ No se encontró el módulo [alquiler]");
@@ -39,8 +38,5 @@ function obtenerDatosAlquiler() {
   console.log("📦 Datos capturados de [alquiler]:", datos);
   return datos;
 }
-
-// 👇 Esto lo hace accesible desde cualquier lugar
-window.obtenerDatosAlquiler = obtenerDatosAlquiler;
 
 console.log("✅ alquiler.js cargado correctamente");

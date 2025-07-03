@@ -54,9 +54,3 @@ function inicializarModuloServicios() {
 }
 
 document.addEventListener('DOMContentLoaded', inicializarModuloServicios);
-
-
-// 👇 Cuelga la función en window
-window.obtenerDatosServicios = obtenerDatosServicios;
-
-console.log("✅ servicios.js completamente inicializado y listo");

@@ -141,7 +141,5 @@ function obtenerDatosModuloAlquiler() {
 
 document.addEventListener('DOMContentLoaded', inicializarModuloAlquiler);
 
-// 👇 Para que sea accesible desde reenviarService.js
+window.inicializarModuloAlquiler = inicializarModuloAlquiler;
 window.obtenerDatosAlquiler = obtenerDatosModuloAlquiler;
-
-console.log("✅ alquiler.js completamente inicializado y listo");
