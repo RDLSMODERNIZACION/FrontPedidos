@@ -1,5 +1,8 @@
 import { archivoAObjetoBase64 } from '../helpers/base64.js';
 
+
+
+
 export async function obtenerDatosGeneral() {
   console.log("🔍 Iniciando recolección de datos del módulo GENERAL...");
 
@@ -89,3 +92,6 @@ function convertirMesAnioAFechaISO(texto) {
 
   return texto;
 }
+
+window.obtenerDatosGeneral = obtenerDatosGeneral;
+console.log("✅ general.js cargado correctamente");

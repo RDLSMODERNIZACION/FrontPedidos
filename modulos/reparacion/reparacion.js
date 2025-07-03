@@ -113,3 +113,9 @@ async function cargarListaUnidadesEnTodosSelects() {
 
 // Inicializar al cargar DOM
 document.addEventListener('DOMContentLoaded', inicializarModuloReparacion);
+
+
+// 👇 Colgar la función en `window`
+window.obtenerDatosReparacion = obtenerDatosReparacion;
+
+console.log("✅ reparacion.js completamente inicializado y listo");

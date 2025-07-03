@@ -19,10 +19,18 @@
       return;
     }
 
+    const campoId = document.querySelector('#id-tramite');
+    if (campoId) campoId.value = pedido.IDTRAMITE || '';
+
+    const campoObservacion = document.querySelector('#observacion');
+    if (campoObservacion) campoObservacion.value = pedido["MOTIVO OBSERVACION"] || '';
+
+    const campoDetalle = document.querySelector('#detalle');
+    if (campoDetalle) campoDetalle.value = pedido["DETALLE"] || '';
+
     console.log("📝 Pedido encontrado:", pedido);
     console.log("🧩 MODULO bruto:", pedido.MODULO);
 
-    // Procesar y limpiar los módulos
     const modulosRaw = pedido.MODULO || "";
     const modulos = modulosRaw
       .split(",")
@@ -31,7 +39,6 @@
 
     console.log("🧩 Módulos detectados:", modulos);
 
-    // Mostrar los módulos y secretaría en los campos principales (si existen)
     const campoModulo = document.querySelector('input[name="modulo"]');
     if (campoModulo) campoModulo.value = modulos.join(', ');
 
@@ -48,23 +55,23 @@
 
         const script = document.createElement("script");
         script.src = `/modulos/${modulo}/${modulo}.js`;
-        script.defer = true;
         document.body.appendChild(script);
 
-        await new Promise(resolve => (script.onload = resolve));
-
-        const funcion = `inicializarModulo${capitalizar(modulo)}`;
-        if (typeof window[funcion] === "function") {
-          window[funcion](pedido);
-          console.log(`✅ ${funcion} ejecutada.`);
-        } else {
-          console.warn(`⚠️ No se encontró la función ${funcion}() para ${modulo}`);
-        }
+        await new Promise(resolve => {
+          script.onload = () => {
+            console.log(`✅ Módulo ${modulo} cargado`);
+            resolve();
+          };
+        });
 
       } catch (modError) {
         console.error(`❌ Error al cargar módulo "${modulo}":`, modError);
       }
     }
+
+    // 📌 Aquí cuando ya todos los módulos terminaron de cargarse:
+    console.log("✅ Todos los módulos cargados y listos.");
+    window.todosLosModulosListos = true;
 
   } catch (error) {
     console.error("❌ Error en loader-reenvio:", error);
@@ -74,7 +81,3 @@
     }
   }
 })();
-
-function capitalizar(texto) {
-  return texto.charAt(0).toUpperCase() + texto.slice(1);
-}

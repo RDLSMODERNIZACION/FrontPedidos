@@ -43,3 +43,9 @@ function inicializarModuloAdquisicion() {
 }
 
 document.addEventListener('DOMContentLoaded', inicializarModuloAdquisicion);
+
+
+// 👇 Registrar en `window`
+window.obtenerDatosAdquisicion = obtenerDatosAdquisicion;
+
+console.log("✅ adquisición.js completamente inicializado y listo.");

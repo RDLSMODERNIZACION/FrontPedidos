@@ -71,3 +71,9 @@ async function cargarEscuelas() {
 
 // Ejecutar al cargar el HTML
 document.addEventListener('DOMContentLoaded', inicializarModuloMantenimientodeescuelas);
+
+
+// 👇 Registrar en window
+window.obtenerDatosMantenimientodeescuelas = obtenerDatosMantenimientodeescuelas;
+
+console.log("✅ mantenimiento_de_escuelas.js completamente inicializado y listo.");
