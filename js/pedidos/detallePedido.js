@@ -56,12 +56,13 @@ async function cargarDetallePedido(id) {
   const secretariasPermitidas = ["economía", "juzgado de faltas"];
   const puedeAprobar = secretariasPermitidas.includes(secretaria);
 
-  if (estado === "pendiente" && puedeAprobar) {
+  if ((estado === "pendiente" || estado === "reenviado") && puedeAprobar) {
     document.getElementById('acciones-pedido').style.display = 'flex';
     console.log("✅ Botones mostrados");
-  } else {
+} else {
     console.log("❌ Botones ocultos (estado o secretaría no válida)");
-  }
+}
+
 
   // Mostrar motivo si corresponde
   const motivo = pedido["MOTIVO OBSERVACION"]?.trim();
@@ -109,8 +110,6 @@ async function cargarDetallePedido(id) {
 
 
 
-
-
 function formatearFecha(fecha) {
   const f = new Date(fecha);
   return isNaN(f) ? fecha : f.toLocaleDateString('es-AR');
@@ -128,14 +127,4 @@ function parseCSV(texto) {
     return obj;
   });
 }
-
-function aprobarPedido() {
-  alert('✅ Pedido aprobado. (Simulado)');
 }
-
-function rechazarPedido() {
-  const confirmacion = confirm('¿Seguro que querés rechazar este pedido?');
-  if (confirmacion) {
-    alert('❌ Pedido rechazado. (Simulado)');
-   }
-} }

@@ -3,7 +3,6 @@ console.log("✅ reparacion.js cargado correctamente");
 function inicializarModuloReparacion() {
   console.log("✅ Inicializando módulo Reparaciones...");
 
-  const switchMostrarReparacion = document.getElementById('switchReparacion');
   const opcionesReparacion = document.getElementById('opcionesReparacion');
   const ayudaReparacionBtn = document.getElementById('ayudaReparacionBtn');
   const ayudaTextoReparacion = document.getElementById('ayudaTextoReparacion');
@@ -20,22 +19,9 @@ function inicializarModuloReparacion() {
     return;
   }
 
-  // Inicialmente todo oculto
-  opcionesReparacion.classList.add('d-none');
+  // Inicialmente oculta las subsecciones
   seccionMaquinaria.classList.add('d-none');
   seccionOtros.classList.add('d-none');
-
-  // Switch para mostrar/ocultar todo el módulo
-  switchMostrarReparacion.addEventListener('change', () => {
-    if (switchMostrarReparacion.checked) {
-      opcionesReparacion.classList.remove('d-none');
-    } else {
-      opcionesReparacion.classList.add('d-none');
-      seccionMaquinaria.classList.add('d-none');
-      seccionOtros.classList.add('d-none');
-      tipoReparacionRadios.forEach(radio => radio.checked = false);
-    }
-  });
 
   // Botón de ayuda ℹ️
   ayudaReparacionBtn.addEventListener('click', () => {
@@ -111,11 +97,41 @@ async function cargarListaUnidadesEnTodosSelects() {
   }
 }
 
+// 📤 Exporta los datos para enviar
+function obtenerDatosReparacion() {
+  const modulo = document.querySelector('[data-modulo="reparacion"]');
+  const datos = {};
+
+  const tipoReparacion = modulo.querySelector('input[name="tipoReparacion"]:checked')?.value || '';
+  datos.rubro = tipoReparacion;
+
+  if (tipoReparacion === 'maquinaria') {
+    const unidades = [];
+
+    modulo.querySelectorAll('#contenedorMaquinarias .maquinaria-item').forEach(grupo => {
+      const unidad = grupo.querySelector('.unidadMaquinaria')?.value?.trim() || '';
+      const detalle = grupo.querySelector('.detalleReparacionMaquinaria')?.value?.trim() || '';
+      if (unidad || detalle) unidades.push({ unidad, detalle });
+    });
+
+    datos.objeto = JSON.stringify(unidades);
+    datos.detalleReparacion = '';
+  } else if (tipoReparacion === 'otros') {
+    datos.objeto = modulo.querySelector('#nombreOtro')?.value?.trim() || '';
+    datos.detalleReparacion = modulo.querySelector('#detalleReparacionOtros')?.value?.trim() || '';
+  } else {
+    datos.objeto = '';
+    datos.detalleReparacion = '';
+  }
+
+  return datos;
+}
+
 // Inicializar al cargar DOM
-document.addEventListener('DOMContentLoaded', inicializarModuloReparacion);
-
-
-// 👇 Colgar la función en `window`
-window.obtenerDatosReparacion = obtenerDatosReparacion;
+document.addEventListener('DOMContentLoaded', () => {
+  inicializarModuloReparacion();
+  // 👇 Colgar la función al `window` para que sea accesible desde fuera
+  window.obtenerDatosReparacion = obtenerDatosReparacion;
+});
 
 console.log("✅ reparacion.js completamente inicializado y listo");

@@ -113,4 +113,4 @@ window.obtenerDatosObras = function () {
   return datos;
 };
 
-window.inicializarModuloObras = inicializarModuloObras;
+

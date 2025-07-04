@@ -25,35 +25,6 @@ export function generarIDTramite(datos = {}) {
 
   console.log("🔠 Sigla de secretaría:", siglaSecretaria);
 
-  // 🔍 Detectar módulos válidos (excluir 'modulo_general')
-  // 🔍 Detectar módulos válidos (excluir 'modulo_general')
-const modulos = Object.keys(datos)
-  .filter(k => k.startsWith('modulo_') && k !== 'modulo_general');
-
-console.log("🧩 Módulos encontrados:", modulos);
-
-// 🧩 Diccionario para siglas personalizadas
-const mapaSiglas = {
-  adquisicion: 'ADQ',
-  servicios: 'SER',
-  obras: 'OBR',
-  reparacion: 'REP',
-  mantenimientodeescuelas: 'MDE',
-  profesionales: 'PRO',
-  otros: 'OTR'
-};
-
-// 🧠 Extraer siglas finales
-const siglasModulos = modulos.length > 0
-  ? modulos.map(m => {
-      const nombreModulo = m.replace('modulo_', '').toLowerCase();
-      return mapaSiglas[nombreModulo] || nombreModulo.substring(0, 3).toUpperCase();
-    }).join('-')
-  : 'GEN';
-
-console.log("🔠 Siglas de módulos:", siglasModulos);
-
-
   // 🕒 Fecha y hora actual
   const ahora = new Date();
   const yyyy = ahora.getFullYear();
@@ -63,7 +34,7 @@ console.log("🔠 Siglas de módulos:", siglasModulos);
   const min = String(ahora.getMinutes()).padStart(2, '0');
   const ss = String(ahora.getSeconds()).padStart(2, '0');
 
-  const id = `${siglaSecretaria}-${siglasModulos}-${yyyy}${mm}${dd}-${hh}${min}${ss}`;
-  console.log("🆔 ID generado:", id);
+  const id = `${siglaSecretaria}-${yyyy}${mm}${dd}-${hh}${min}${ss}`;
+  console.log("🆔 ID generado sin módulo:", id);
   return id;
 }
