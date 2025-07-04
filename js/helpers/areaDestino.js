@@ -17,5 +17,5 @@ export function obtenerAreaDestino(presupuesto) {
 
   if (isNaN(monto)) return "Compras";
 
-  return monto >= 5000000 ? "Contrataciones" : "Compras";
+  return monto >= 10000000 ? "Contrataciones" : "Compras";
 }
