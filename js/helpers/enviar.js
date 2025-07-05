@@ -25,7 +25,8 @@ export async function enviarFormularioSinRespuesta(datos) {
     }
 
     // 🆔 Generar ID
-    const idTramite = generarIDTramite(datos.modulo);
+    // Generar el ID utilizando todos los datos disponibles
+    const idTramite = generarIDTramite(datos);
     console.log("🆔 ID generado:", idTramite);
 
     // 🧾 Calcular área destino
