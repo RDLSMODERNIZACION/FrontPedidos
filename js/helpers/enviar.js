@@ -3,6 +3,7 @@ import { validarDatosGenerales, validarModuloEspecifico } from './validaciones.j
 import { mostrarModalExito, mostrarModalError } from './modalExito.js';
 import { obtenerAreaDestino } from './areaDestino.js';
 import { detectarModulos } from './detectarModulos.js';
+import { API_BASE_URL } from '../config/apiConfig.js';
 
 export async function enviarFormularioSinRespuesta(datos) {
   const boton = document.getElementById('btnEnviarFormulario');
@@ -48,7 +49,7 @@ console.log("🚀 JSON a enviar al servidor:");
 console.log(JSON.stringify(datosCompletos, null, 2));  // 👈 con sangrado de 2 espaci
 
     // 📨 POST único
-    const res = await fetch('/api/crear-carpeta', {
+    const res = await fetch(`${API_BASE_URL}/api/crear-carpeta`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(datosCompletos)
