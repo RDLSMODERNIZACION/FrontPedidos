@@ -14,7 +14,7 @@ El código JavaScript realiza las peticiones a `https://contrataciones1.onrender
 
 ## Backend (proxy)
 
-El backend se encuentra en la carpeta `proxi/` y utiliza Express. Debe desplegarse en un servicio como [Render](https://render.com/).
+El backend se encuentra en la carpeta `proxi/` y utiliza Express. Incluye compresión, Helmet, registros con timestamp y validaciones usando *express-validator*. Debe desplegarse en un servicio como [Render](https://render.com/).
 
 ### Variables de entorno necesarias
 
@@ -25,6 +25,8 @@ En Render crea las siguientes variables en la sección **Environment**:
 - `GAS_URL_REENVIAR_PEDIDO`: URL para reenviar pedidos.
 - `FRONTEND_ORIGIN`: (opcional) origen permitido para CORS, por ejemplo `https://tuusuario.github.io`.
 - `PORT`: puerto de escucha (Render establece uno por defecto).
+
+Puedes tomar como base el archivo `proxi/.env.example` para definirlas rápidamente.
 
 ### Configuración en Render
 
