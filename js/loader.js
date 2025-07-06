@@ -1,9 +1,8 @@
+const baseURL = document.currentScript?.src
+  .replace(/\/js\/loader\.js.*$/, '') || '';
+
 (async function iniciarLoader() {
   console.log('🚀 loader.js ejecutándose...');
-
-  // Ruta base para cargar recursos incluso si la aplicación está en un subdirectorio
-  const baseURL = document.currentScript?.src
-    .replace(/\/js\/loader\.js.*$/, '') || '';
 
   try {
     const usuario = JSON.parse(localStorage.getItem('usuario'));
