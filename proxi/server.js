@@ -1,86 +1,78 @@
 import express from 'express';
-import fetch from 'node-fetch';
 import cors from 'cors';
+import fetch from 'node-fetch';
+import dotenv from 'dotenv';
+
+dotenv.config(); // Permite usar un .env local durante el desarrollo
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+// URLs de las Web Apps de Google Apps Script
+const {
+  GAS_URL_CREAR_CARPETA,
+  GAS_URL_ACTUALIZAR_ESTADO,
+  GAS_URL_REENVIAR_PEDIDO,
+  FRONTEND_ORIGIN
+} = process.env;
+
+if (!GAS_URL_CREAR_CARPETA || !GAS_URL_ACTUALIZAR_ESTADO || !GAS_URL_REENVIAR_PEDIDO) {
+  console.warn('⚠️ Debes definir las URLs de GAS en las variables de entorno');
+}
+
+app.use(cors({ origin: FRONTEND_ORIGIN || '*' }));
 app.use(express.json());
 
-// ✅ Apps Script URLs
-const URL_CREAR_CARPETA = 'https://script.google.com/macros/s/AKfycbw0Xp3sWFdG6Enbd3AW2fbEyu3PZxvXW-8czq2ZLG5uksFIdUKN7n9tJjFj-EQQp-qf/exec';
-const URL_ACTUALIZAR_ESTADO = 'https://script.google.com/macros/s/AKfycbyny2IjeG_Xeg4BTEM979-cW5e7PMmApj-WhS9X29Q46GAh-tEC7mJoY66TV94gpgJe_w/exec';
-const URL_REENVIAR_PEDIDO = 'https://script.google.com/macros/s/AKfycbyCpB-_Xdop5qHhih13WArlQ9YfYYXSYT2BBeXGH3EY0IX8J7Q5qiVD6e-JkuUHqxI/exec';
-
-// 📁 PRIMER POST
-app.post('/api/crear-carpeta', async (req, res) => {
+async function enviarPost(url, datos, res, mensajeError) {
   try {
-    const datos = req.body;
-    const respuesta = await fetch(URL_CREAR_CARPETA, {
+    const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(datos)
     });
-    const json = await respuesta.json();
-    res.json(json);
-  } catch (error) {
-    console.error('❌ Error en proxy (crear carpeta):', error);
-    res.status(500).json({ estado: 'error', mensaje: 'Fallo al crear carpeta.' });
-  }
-});
-
-
-
-// ✅ ACTUALIZAR ESTADO
-app.post('/api/actualizar-estado', async (req, res) => {
-  try {
-    const datos = req.body;
-    const respuesta = await fetch(URL_ACTUALIZAR_ESTADO, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(datos)
-    });
-    const json = await respuesta.json();
-    res.json(json);
-  } catch (error) {
-    console.error('❌ Error en proxy (actualizar estado):', error);
-    res.status(500).json({ estado: 'error', mensaje: 'Fallo al actualizar el estado del pedido.' });
-  }
-});
-
-// 🔷 NUEVO: REENVIAR PEDIDO
-app.post('/api/reenviar-pedido', async (req, res) => {
-  try {
-    const datos = req.body;
-    const respuesta = await fetch(URL_REENVIAR_PEDIDO, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(datos)
-    });
-
-    const texto = await respuesta.text();
-    console.log("📩 Respuesta cruda desde Apps Script:", texto);
-
-    let json;
+    const texto = await resp.text();
     try {
-      json = JSON.parse(texto);
-    } catch (e) {
-      console.error("❌ No se pudo parsear JSON:", e);
-      res.status(500).json({ estado: 'error', mensaje: 'Respuesta inválida del Apps Script.', detalle: texto });
-      return;
+      const json = JSON.parse(texto);
+      res.json(json);
+    } catch (err) {
+      console.error('❌ Respuesta no JSON:', err);
+      res.status(500).json({ estado: 'error', mensaje: 'Respuesta inválida del GAS', detalle: texto });
     }
-
-    res.json(json);
   } catch (error) {
-    console.error('❌ Error en proxy (reenviar pedido):', error);
-    res.status(500).json({ estado: 'error', mensaje: 'Fallo al reenviar el pedido.' });
+    console.error(mensajeError, error);
+    res.status(500).json({ estado: 'error', mensaje: 'Error al contactar al GAS' });
   }
+}
+
+function validarBody(req, res) {
+  if (!req.body || typeof req.body !== 'object') {
+    res.status(400).json({ estado: 'error', mensaje: 'Datos enviados inválidos' });
+    return false;
+  }
+  return true;
+}
+
+app.post('/api/crear-carpeta', (req, res) => {
+  if (!validarBody(req, res)) return;
+  enviarPost(GAS_URL_CREAR_CARPETA, req.body, res, '❌ Error en crear carpeta:');
 });
 
+app.post('/api/actualizar-estado', (req, res) => {
+  if (!validarBody(req, res)) return;
+  enviarPost(GAS_URL_ACTUALIZAR_ESTADO, req.body, res, '❌ Error en actualizar estado:');
+});
 
+app.post('/api/reenviar-pedido', (req, res) => {
+  if (!validarBody(req, res)) return;
+  enviarPost(GAS_URL_REENVIAR_PEDIDO, req.body, res, '❌ Error en reenviar pedido:');
+});
 
-// 🟢 ¡Siempre al final!
+// Manejo de rutas inexistentes
+app.use((req, res) => {
+  res.status(404).json({ estado: 'error', mensaje: 'Endpoint no encontrado' });
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Proxy activo en http://localhost:${PORT}`);
 });
+

@@ -1,22 +1,53 @@
-# Contrataciones Web v1
+# Contrataciones Web
 
-Este proyecto corresponde al frontend de la aplicación de solicitudes. Para la versión **v1** se consume directamente la Web App de Google Apps Script como backend. Las llamadas ya no pasan por el proxy Node.js.
+Este proyecto contiene el frontend en HTML/CSS/JS y un pequeño backend en Node.js que actúa como proxy hacia Google Apps Script. De esta manera se evitan los problemas de CORS al consumir la Web App de GAS desde GitHub Pages.
 
-## Despliegue en GitHub Pages
+## Frontend
 
-1. Realiza un fork o clona este repositorio en GitHub.
-2. En la configuración del repositorio selecciona **Pages** y apunta a la rama principal (`main`) en la carpeta raíz.
-3. Guarda los cambios y GitHub Pages publicará el sitio estático.
+El sitio es estático y puede desplegarse en GitHub Pages.
 
-El sitio funcionará sin necesidad de levantar `server.js` ni instalar Node.js. Todas las peticiones `fetch` se envían directamente a Google Apps Script.
+1. Haz un fork o clona este repositorio.
+2. En la configuración del repositorio habilita **GitHub Pages** apuntando a la rama `main` y carpeta raíz.
+3. Publica los cambios y GitHub Pages servirá la web.
 
-## Backend
+El código JavaScript realiza las peticiones a `https://contrataciones1.onrender.com` donde se encuentra el backend.
 
-Los endpoints consumidos son Web Apps de Google Apps Script:
+## Backend (proxy)
 
-- Crear carpeta: `https://script.google.com/macros/s/AKfycbw0Xp3sWFdG6Enbd3AW2fbEyu3PZxvXW-8czq2ZLG5uksFIdUKN7n9tJjFj-EQQp-qf/exec`
-- Actualizar estado: `https://script.google.com/macros/s/AKfycbyny2IjeG_Xeg4BTEM979-cW5e7PMmApj-WhS9X29Q46GAh-tEC7mJoY66TV94gpgJe_w/exec`
-- Reenviar pedido: `https://script.google.com/macros/s/AKfycbyCpB-_Xdop5qHhih13WArlQ9YfYYXSYT2BBeXGH3EY0IX8J7Q5qiVD6e-JkuUHqxI/exec`
+El backend se encuentra en la carpeta `proxi/` y utiliza Express. Debe desplegarse en un servicio como [Render](https://render.com/).
 
-Estos endpoints están definidos en `js/config/apiConfig.js` y son utilizados por el código JavaScript del proyecto.
+### Variables de entorno necesarias
+
+En Render crea las siguientes variables en la sección **Environment**:
+
+- `GAS_URL_CREAR_CARPETA`: URL de la Web App de GAS para crear carpetas.
+- `GAS_URL_ACTUALIZAR_ESTADO`: URL para actualizar el estado.
+- `GAS_URL_REENVIAR_PEDIDO`: URL para reenviar pedidos.
+- `FRONTEND_ORIGIN`: (opcional) origen permitido para CORS, por ejemplo `https://tuusuario.github.io`.
+- `PORT`: puerto de escucha (Render establece uno por defecto).
+
+### Comandos
+
+Render instalará las dependencias y ejecutará `npm start` de `proxi/package.json`.
+
+Para probarlo localmente:
+
+```bash
+cd proxi
+npm install
+npm start
+```
+
+El proxy quedará disponible en `http://localhost:3000`.
+
+## Uso desde el frontend
+
+En `js/config/apiConfig.js` se define la URL base del backend. Los módulos del proyecto utilizan estas rutas para realizar las peticiones `fetch`.
+
+```javascript
+export const API_BASE_URL = 'https://contrataciones1.onrender.com';
+export const API_URL_CREAR_CARPETA = `${API_BASE_URL}/api/crear-carpeta`;
+```
+
+De esta forma todo el código apunta al backend desplegado.
 
