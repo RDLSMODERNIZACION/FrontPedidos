@@ -68,6 +68,15 @@
     const campoSecretaria = document.querySelector('input[name="secretaria"]');
     if (campoSecretaria && pedido.Secretaria) campoSecretaria.value = pedido.Secretaria.trim();
 
+
+    // … ya dentro del try, después de encontrar el pedido:
+const campoNombreUsuario = document.querySelector('#nombre-usuario');
+const campoSecretariaUsuario = document.querySelector('#secretaria-usuario');
+
+if (campoNombreUsuario && pedido.NOMBRE) campoNombreUsuario.value = pedido.NOMBRE.trim();
+if (campoSecretariaUsuario && pedido.Secretaria) campoSecretariaUsuario.value = pedido.Secretaria.trim();
+
+
     // Cargar dinámicamente cada módulo
     for (const modulo of modulos) {
       try {
@@ -80,21 +89,26 @@
         script.src = `${baseURL}/modulos/${modulo}/${modulo}.js`;
         document.body.appendChild(script);
 
-        await new Promise(resolve => {
-          script.onload = () => {
-            console.log(`✅ Módulo ${modulo} cargado`);
+       await new Promise(resolve => {
+  script.onload = async () => {
+    console.log(`✅ Módulo ${modulo} cargado`);
 
-            const nombreFuncion = `inicializarModulo${capitalizarPrimeraLetra(modulo)}`;
-            if (typeof window[nombreFuncion] === 'function') {
-              window[nombreFuncion]();
-              console.log(`🚀 ${nombreFuncion}() ejecutado`);
-            } else {
-              console.warn(`⚠️ No se encontró ${nombreFuncion}() para inicializar ${modulo}`);
-            }
+    const nombreFuncion = `inicializarModulo${capitalizarPrimeraLetra(modulo)}`;
+    if (typeof window[nombreFuncion] === 'function') {
+      try {
+        await window[nombreFuncion]();
+        console.log(`🚀 ${nombreFuncion}() ejecutado`);
+      } catch (err) {
+        console.error(`❌ Error en ${nombreFuncion}():`, err);
+      }
+    } else {
+      console.warn(`⚠️ No se encontró ${nombreFuncion}() para inicializar ${modulo}`);
+    }
 
-            resolve();
-          };
-        });
+    resolve();
+  };
+});
+
 
       } catch (modError) {
         console.error(`❌ Error al cargar módulo "${modulo}":`, modError);

@@ -1,15 +1,12 @@
 console.log("✅ general.js cargado correctamente");
 
-async function inicializarModuloGeneral() {
-  console.log("🚀 Inicializando módulo General...");
+window.inicializarModuloGeneral = async function () {
+  console.log("🚀 Inicializando módulo General…");
 
   await esperarElemento("#fecha");
   await esperarElemento("#periodo");
 
-  if (typeof flatpickr === "undefined") {
-    console.log("⏳ Esperando a flatpickr...");
-    await esperarFlatpickr();
-  }
+  await asegurarFlatpickr();
 
   const inputFecha = document.getElementById("fecha");
   const inputPeriodo = document.getElementById("periodo");
@@ -34,6 +31,15 @@ async function inicializarModuloGeneral() {
     });
   }
 
+  if (inputPeriodo) {
+    flatpickr(inputPeriodo, {
+      mode: "range",
+      dateFormat: "d/m/Y",
+      locale: "es"
+    });
+  }
+
+  // Ajustar estado inicial del contenedor presupuestos
   const hoy = new Date();
   const seleccionada = flatpickr.parseDate(inputFecha.value, "d/m/Y");
   if (seleccionada) {
@@ -43,15 +49,33 @@ async function inicializarModuloGeneral() {
     presupuesto2.required = !esHoy;
   }
 
-  if (inputPeriodo) {
-    flatpickr(inputPeriodo, {
-      mode: "range",
-      dateFormat: "d/m/Y",
-      locale: "es"
-    });
+  console.log("✅ Flatpickr inicializado correctamente en #fecha y #periodo");
+};
+
+async function asegurarFlatpickr() {
+  if (typeof flatpickr !== 'undefined') {
+    console.log("✅ flatpickr ya está cargado");
+    return;
   }
 
-  console.log("✅ Flatpickr inicializado correctamente en #fecha y #periodo");
+  console.log("⏳ Cargando flatpickr…");
+
+  // CSS
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = "https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css";
+  document.head.appendChild(link);
+
+  // JS
+  await new Promise(resolve => {
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/flatpickr";
+    script.onload = () => {
+      console.log("✅ flatpickr cargado desde CDN");
+      resolve();
+    };
+    document.head.appendChild(script);
+  });
 }
 
 function esperarElemento(selector) {
@@ -67,20 +91,8 @@ function esperarElemento(selector) {
   });
 }
 
-function esperarFlatpickr() {
-  return new Promise(resolve => {
-    if (typeof flatpickr !== "undefined") return resolve();
-    const interval = setInterval(() => {
-      if (typeof flatpickr !== "undefined") {
-        clearInterval(interval);
-        resolve();
-      }
-    }, 100);
-  });
-}
-
-// 👇 Esta es la clave: función para recolectar datos
-function obtenerDatosGeneral() {
+// 👇 Para recolectar los datos
+window.obtenerDatosGeneral = function () {
   const datos = {};
   const modulo = document.querySelector('[data-modulo="general"]');
   if (!modulo) {
@@ -102,8 +114,4 @@ function obtenerDatosGeneral() {
 
   console.log("📦 Datos capturados de [general]:", datos);
   return datos;
-}
-
-// 👇 Colgar ambas funciones en window
-window.inicializarModuloGeneral = inicializarModuloGeneral;
-window.obtenerDatosGeneral = obtenerDatosGeneral;
+};

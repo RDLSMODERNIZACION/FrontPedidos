@@ -31,30 +31,44 @@ export async function reenviarPedido(datosBase) {
       }
     }
 
+    // 🔷 Obtener datos del usuario desde los campos del formulario
+    const nombreUsuario = document.querySelector('#nombre-usuario')?.value.trim() || '';
+    const secretariaUsuario = document.querySelector('#secretaria-usuario')?.value.trim() || '';
+
+    const usuario = {
+      nombre: nombreUsuario,
+      secretaria: secretariaUsuario
+    };
+
+    console.log("👤 Usuario recolectado:", usuario);
+
     const payload = {
       idTramite: datosBase.idTramite,
       accion: 'reenviarPedido',
       nuevoEstado: 'Reenviado',
       motivo: datosBase.observacion || 'Corrección de datos',
-      usuario: datosBase.usuario || 'desconocido',
+      usuario,
       modulo: datosBase.modulo || '',
-      datosActualizados
+      ...datosActualizados
     };
 
     console.log("📦 Payload completo para reenviar:", payload);
 
-    // Validar datos antes de enviar
-if (!validarDatosGenerales(payload) || !validarModuloEspecifico(payload.modulo, payload)) {
-  mostrarModalError('❌ Los datos no son válidos para reenviar.');
-  if (boton) {
-    boton.disabled = false;
-    boton.innerText = '🚀 Reenviar pedido corregido';
-  }
-  return;
-}
+    // 📝 Validaciones
+    const esValidoGeneral = validarDatosGenerales(payload);
+    console.log("✅ validarDatosGenerales:", esValidoGeneral);
 
+    const esValidoModulo = validarModuloEspecifico(payload.modulo, payload);
+    console.log("✅ validarModuloEspecifico:", esValidoModulo);
 
-
+    if (!esValidoGeneral || !esValidoModulo) {
+      mostrarModalError('❌ Los datos no son válidos para reenviar.');
+      if (boton) {
+        boton.disabled = false;
+        boton.innerText = '🚀 Reenviar pedido corregido';
+      }
+      return;
+    }
 
     const res = await fetch(API_URL_REENVIAR_PEDIDO, {
       method: 'POST',
@@ -77,9 +91,7 @@ if (!validarDatosGenerales(payload) || !validarModuloEspecifico(payload.modulo, 
 
   } catch (err) {
     console.error("❌ Error al reenviar:", err);
-
     mostrarModalError(err.message || 'Hubo un problema al reenviar el pedido.');
-
   } finally {
     if (boton) {
       boton.disabled = false;
