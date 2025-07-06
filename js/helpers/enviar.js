@@ -48,7 +48,7 @@ console.log("🚀 JSON a enviar al servidor:");
 console.log(JSON.stringify(datosCompletos, null, 2));  // 👈 con sangrado de 2 espaci
 
     // 📨 POST único
-    const res = await fetch('http://localhost:3000/api/crear-carpeta', {
+    const res = await fetch('/api/crear-carpeta', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(datosCompletos)
