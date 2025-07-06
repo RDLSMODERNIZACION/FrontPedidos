@@ -1,4 +1,5 @@
 import { mostrarModalExito, mostrarModalError } from '../helpers/modalExito.js';
+import { API_BASE_URL } from '../config/apiConfig.js';
 
 export async function reenviarPedido(datosBase) {
   const boton = document.getElementById('btn-reenviar-definitivo');
@@ -40,7 +41,7 @@ export async function reenviarPedido(datosBase) {
 
     console.log("📦 Payload completo para reenviar:", payload);
 
-    const res = await fetch('/api/reenviar-pedido', {
+    const res = await fetch(`${API_BASE_URL}/api/reenviar-pedido`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
