@@ -1,6 +1,10 @@
 (async function iniciarLoaderReenvio() {
   console.log("🚀 loader-reenvio.js ejecutándose...");
 
+  // Detectar la ruta base para que los fetch funcionen en subdirectorios
+  const baseURL = document.currentScript?.src
+    .replace(/\/js\/reenvio\/loader-reenvio\.js.*$/, '') || '';
+
   try {
     const urlParams = new URLSearchParams(window.location.search);
     const id = urlParams.get("id");
@@ -48,13 +52,13 @@
     // Cargar dinámicamente cada módulo
     for (const modulo of modulos) {
       try {
-        const htmlResponse = await fetch(`/modulos/${modulo}/${modulo}.html`);
+        const htmlResponse = await fetch(`${baseURL}/modulos/${modulo}/${modulo}.html`);
         if (!htmlResponse.ok) throw new Error(`No se pudo cargar HTML de "${modulo}"`);
         const html = await htmlResponse.text();
         document.getElementById("contenedor-reenvio").insertAdjacentHTML("beforeend", html);
 
         const script = document.createElement("script");
-        script.src = `/modulos/${modulo}/${modulo}.js`;
+        script.src = `${baseURL}/modulos/${modulo}/${modulo}.js`;
         document.body.appendChild(script);
 
         await new Promise(resolve => {
