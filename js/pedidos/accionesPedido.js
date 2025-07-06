@@ -1,10 +1,10 @@
-import { API_BASE_URL } from '../config/apiConfig.js';
+import { API_URL_ACTUALIZAR_ESTADO } from '../config/apiConfig.js';
 
 async function actualizarEstadoPedido(idTramite, nuevoEstado, motivo = "", botonClicado = null) {
   bloquearBotonesAccion(botonClicado);
 
   try {
-    const respuesta = await fetch(`${API_BASE_URL}/api/actualizar-estado`, {
+    const respuesta = await fetch(API_URL_ACTUALIZAR_ESTADO, {
       method: "POST",
       body: JSON.stringify({
         accion: "actualizarEstado",
