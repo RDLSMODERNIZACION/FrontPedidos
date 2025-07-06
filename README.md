@@ -26,6 +26,12 @@ En Render crea las siguientes variables en la sección **Environment**:
 - `FRONTEND_ORIGIN`: (opcional) origen permitido para CORS, por ejemplo `https://tuusuario.github.io`.
 - `PORT`: puerto de escucha (Render establece uno por defecto).
 
+### Configuración en Render
+
+1. Crea un nuevo **Web Service** y conecta este repositorio.
+2. En la pestaña **Environment** agrega las variables anteriores. Usa las URLs de tus WebApps de GAS y, opcionalmente, define `FRONTEND_ORIGIN` con el dominio de GitHub Pages.
+3. Render instalará automáticamente las dependencias y ejecutará `npm start` en la carpeta `proxi`.
+
 ### Comandos
 
 Render instalará las dependencias y ejecutará `npm start` de `proxi/package.json`.
