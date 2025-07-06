@@ -30,7 +30,7 @@ export function mostrarModalExito(id = '') {
   modal.show();
 }
 
-export function mostrarModalError(mensaje = 'Ocurrió un error') {
+export function mostrarModalError(mensaje = 'Ocurrió un error', autocerrar = true, ms = 3000) {
   const modalId = 'modalError';
 
   if (!document.getElementById(modalId)) {
@@ -57,6 +57,13 @@ export function mostrarModalError(mensaje = 'Ocurrió un error') {
     if (contenedor) contenedor.textContent = mensaje;
   }
 
-  const modal = new bootstrap.Modal(document.getElementById(modalId));
+  const modalElement = document.getElementById(modalId);
+  const modal = new bootstrap.Modal(modalElement);
   modal.show();
+
+  if (autocerrar) {
+    setTimeout(() => {
+      modal.hide();
+    }, ms);
+  }
 }

@@ -2,7 +2,6 @@ import { mostrarModalExito, mostrarModalError } from '../helpers/modalExito.js';
 import { API_URL_REENVIAR_PEDIDO } from '../config/apiConfig.js';
 import { validarDatosGenerales, validarModuloEspecifico } from '../helpers/validaciones.js';
 
-
 export async function reenviarPedido(datosBase) {
   const boton = document.getElementById('btn-reenviar-definitivo');
   if (boton) {
@@ -38,13 +37,19 @@ export async function reenviarPedido(datosBase) {
       nuevoEstado: 'Reenviado',
       motivo: datosBase.observacion || 'Corrección de datos',
       usuario: datosBase.usuario || 'desconocido',
+      modulo: datosBase.modulo || '',
       datosActualizados
     };
 
     console.log("📦 Payload completo para reenviar:", payload);
 
-    if (!validarDatosGenerales(datos) || !validarModuloEspecifico(datos.modulo, datos)) {
-  alert('❌ Los datos no son válidos para reenviar.');
+    // 🔷 Validación
+   if (!validarDatosGenerales(payload) || !validarModuloEspecifico(payload.modulo, payload)) {
+  mostrarModalError('❌ Los datos no son válidos para reenviar.');
+  if (boton) {
+    boton.disabled = false;
+    boton.innerText = '🚀 Reenviar pedido corregido';
+  }
   return;
 }
 
@@ -66,7 +71,7 @@ export async function reenviarPedido(datosBase) {
 
   } catch (err) {
     console.error("❌ Error al reenviar:", err);
-    alert("❌ Hubo un problema al reenviar el pedido.");
+    mostrarModalError("❌ Hubo un problema al reenviar el pedido.");
   } finally {
     if (boton) {
       boton.disabled = false;
