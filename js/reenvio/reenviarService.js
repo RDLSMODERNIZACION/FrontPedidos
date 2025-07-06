@@ -1,5 +1,7 @@
 import { mostrarModalExito, mostrarModalError } from '../helpers/modalExito.js';
 import { API_URL_REENVIAR_PEDIDO } from '../config/apiConfig.js';
+import { validarDatosGenerales, validarModuloEspecifico } from '../helpers/validaciones.js';
+
 
 export async function reenviarPedido(datosBase) {
   const boton = document.getElementById('btn-reenviar-definitivo');
@@ -40,6 +42,12 @@ export async function reenviarPedido(datosBase) {
     };
 
     console.log("📦 Payload completo para reenviar:", payload);
+
+    if (!validarDatosGenerales(datos) || !validarModuloEspecifico(datos.modulo, datos)) {
+  alert('❌ Los datos no son válidos para reenviar.');
+  return;
+}
+
 
     const res = await fetch(API_URL_REENVIAR_PEDIDO, {
       method: 'POST',
