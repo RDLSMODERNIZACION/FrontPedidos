@@ -40,7 +40,7 @@ export async function reenviarPedido(datosBase) {
 
     console.log("📦 Payload completo para reenviar:", payload);
 
-    const res = await fetch('http://localhost:3000/api/reenviar-pedido', {
+    const res = await fetch('/api/reenviar-pedido', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

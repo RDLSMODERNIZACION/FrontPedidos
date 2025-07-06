@@ -2,7 +2,7 @@ async function actualizarEstadoPedido(idTramite, nuevoEstado, motivo = "", boton
   bloquearBotonesAccion(botonClicado);
 
   try {
-    const respuesta = await fetch("http://localhost:3000/api/actualizar-estado", {
+    const respuesta = await fetch("/api/actualizar-estado", {
       method: "POST",
       body: JSON.stringify({
         accion: "actualizarEstado",
