@@ -5,6 +5,9 @@
   const baseURL = document.currentScript?.src
     .replace(/\/js\/reenvio\/loader-reenvio\.js.*$/, '') || '';
 
+  // Exponer globalmente la URL base para que la utilicen los módulos cargados dinámicamente
+  window.BASE_URL_REENVIO = baseURL;
+
   try {
     const urlParams = new URLSearchParams(window.location.search);
     const id = urlParams.get("id");

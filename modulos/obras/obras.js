@@ -71,7 +71,13 @@ async function cargarListaObrasExistentes() {
     const obraSelect = document.getElementById('obra');
     if (!obraSelect) return;
 
-    const obras = await fetch('../componentes/listas/obras_existentes.json').then(r => r.json());
+    const base = window.BASE_URL_REENVIO || '';
+    const url = `${base}/componentes/listas/obras_existentes.json`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`No se pudo obtener la lista de obras. (${res.status})`);
+    }
+    const obras = await res.json();
     obraSelect.innerHTML = '<option value="">Seleccione una obra...</option>';
     obras.forEach(item => {
       const valor = typeof item === 'string' ? item : item.nombre;

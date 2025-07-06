@@ -43,17 +43,23 @@ export async function reenviarPedido(datosBase) {
 
     console.log("📦 Payload completo para reenviar:", payload);
 
-    if (!validarDatosGenerales(datos) || !validarModuloEspecifico(datos.modulo, datos)) {
-  alert('❌ Los datos no son válidos para reenviar.');
-  return;
-}
+    // Validar datos antes de enviar
+    if (!validarDatosGenerales(datosBase) ||
+        !validarModuloEspecifico(datosBase.modulo, datosActualizados)) {
+      mostrarModalError('Los datos no son válidos para reenviar.');
+      return;
+    }
 
 
     const res = await fetch(API_URL_REENVIAR_PEDIDO, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload)
     });
+
+    if (!res.ok) {
+      throw new Error('Respuesta no válida del servidor');
+    }
 
     const json = await res.json();
     console.log("📨 Respuesta del backend:", json);
@@ -66,7 +72,7 @@ export async function reenviarPedido(datosBase) {
 
   } catch (err) {
     console.error("❌ Error al reenviar:", err);
-    alert("❌ Hubo un problema al reenviar el pedido.");
+    mostrarModalError(err.message || 'Hubo un problema al reenviar el pedido.');
   } finally {
     if (boton) {
       boton.disabled = false;
