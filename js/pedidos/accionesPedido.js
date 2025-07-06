@@ -104,3 +104,6 @@ window.observarPedido = function (btn) {
 window.rechazarPedido = function (btn) {
   window.mostrarCampoMotivo('Rechazado', btn);
 };
+
+// Exponer la función principal para los manejadores en detalle.html
+window.actualizarEstadoPedido = actualizarEstadoPedido;
