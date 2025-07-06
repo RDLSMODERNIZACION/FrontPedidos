@@ -1,9 +1,25 @@
 (async function iniciarLoaderReenvio() {
   console.log("🚀 loader-reenvio.js ejecutándose...");
 
-  // Detectar la ruta base para que los fetch funcionen en subdirectorios
-  const baseURL = document.currentScript?.src
-    .replace(/\/js\/reenvio\/loader-reenvio\.js.*$/, '') || '';
+  // Detectar la ruta base para que los fetch funcionen correctamente
+  // tanto cuando la aplicación se sirve desde un subdirectorio de GitHub
+  // Pages (por ejemplo "CONTRATACIONES1") como desde la raíz del dominio.
+
+  const scriptSrc = document.currentScript?.src || '';
+  let baseURL = scriptSrc.replace(/\/js\/reenvio\/loader-reenvio\.js.*$/, '');
+
+  const repoName = 'CONTRATACIONES1';
+  const repoRegex = new RegExp(`/${repoName}(?=/|$)`);
+  if (!repoRegex.test(baseURL)) {
+    // El script se cargó desde la raíz del dominio. Intenta detectar si la
+    // página actual contiene el nombre del repositorio en su ruta para
+    // utilizarlo como base.
+    const locPath = window.location.pathname;
+    const match = locPath.match(new RegExp(`/(?:.+/)?(${repoName})(?=/)`));
+    if (match) {
+      baseURL = `${window.location.origin}/${match[1]}`;
+    }
+  }
 
   // Exponer globalmente la URL base para que la utilicen los módulos cargados dinámicamente
   window.BASE_URL_REENVIO = baseURL;
