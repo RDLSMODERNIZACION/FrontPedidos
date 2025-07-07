@@ -115,16 +115,21 @@ function esperarModuloCargado(nombreModulo) {
     datosRecopilados.modulo = modulosActivos.find(m => m.dataset.modulo !== 'general')?.dataset.modulo || 'general';
 
     if (!validarDatosGenerales(datosRecopilados)) {
-      boton.disabled = false;
-      boton.innerText = '📤 Enviar Formulario';
-      return;
-    }
+  boton.disabled = false;
+  boton.innerText = '📤 Enviar Formulario';
+  return;
+}
 
-    if (!validarModuloEspecifico(datosRecopilados.modulo, datosRecopilados)) {
-      boton.disabled = false;
-      boton.innerText = '📤 Enviar Formulario';
-      return;
-    }
+// validar TODOS los módulos activos
+for (const divModulo of modulosActivos) {
+  const nombre = divModulo.dataset.modulo;
+  if (!validarModuloEspecifico(nombre, datosRecopilados)) {
+    boton.disabled = false;
+    boton.innerText = '📤 Enviar Formulario';
+    return;
+  }
+}
+
 
     if (datosRecopilados.modulo_general) {
       const general = datosRecopilados.modulo_general;
