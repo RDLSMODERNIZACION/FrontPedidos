@@ -25,7 +25,7 @@ export async function enviarFormularioSinRespuesta(datos) {
       return;
     }
 
-    // 🆔 Generar ID
+
     // Generar el ID utilizando todos los datos disponibles
     const idTramite = generarIDTramite(datos);
     console.log("🆔 ID generado:", idTramite);
@@ -33,6 +33,8 @@ export async function enviarFormularioSinRespuesta(datos) {
     // 🧾 Calcular área destino
     const presupuesto = datos.modulo_general?.presupuesto || '0';
     const areaDestino = obtenerAreaDestino(presupuesto);
+     console.log("AREA DESTINO", areaDestino);
+
 
     // 📦 Armar datos completos
 const datosCompletos = {

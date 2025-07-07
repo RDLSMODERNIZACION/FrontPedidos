@@ -214,45 +214,35 @@ function validarModuloAdquisicion(datos) {
     return false;
   }
 
-  if (!datos?.tipoCarga) {
-    mostrarModalError('Debe seleccionarse el tipo de carga (manual o archivo).');
+  let items = [];
+
+  try {
+    items = JSON.parse(datos.contenidoCarga);
+  } catch (e) {
+    mostrarModalError('El contenido de la carga no es un JSON válido.');
     return false;
   }
 
-  // Validar contenido según tipo de carga
-  if (datos.tipoCarga === 'MANUAL') {
-    let contenido = [];
+  if (!Array.isArray(items) || items.length === 0) {
+    mostrarModalError('Debe agregarse al menos un ítem en la carga.');
+    return false;
+  }
 
-    try {
-      contenido = JSON.parse(datos.contenidoCarga);
-    } catch (e) {
-      mostrarModalError('El contenido ingresado no es un JSON válido.');
-      return false;
-    }
+  const hayItemValido = items.some(item =>
+    item.descripcion?.trim() &&
+    item.cantidad?.toString().trim() &&
+    item.unidad?.trim()
+  );
 
-    const hayItemValido = Array.isArray(contenido) && contenido.some(item =>
-      item.descripcion?.trim() &&
-      item.cantidad?.trim() &&
-      item.unidad?.trim()
-    );
-
-    if (!hayItemValido) {
-      mostrarModalError('Debe completarse al menos un ítem válido en la tabla de carga manual.');
-      return false;
-    }
-
-  } else if (datos.tipoCarga === 'ARCHIVO') {
-    if (datos.contenidoCarga === '[Sin archivo]') {
-      mostrarModalError('Debe adjuntarse un archivo si seleccionó "archivo" como tipo de carga.');
-      return false;
-    }
-  } else {
-    mostrarModalError('El tipo de carga seleccionado no es válido.');
+  if (!hayItemValido) {
+    mostrarModalError('Debe completarse al menos un ítem válido con descripción, cantidad y unidad.');
     return false;
   }
 
   return true;
 }
+
+
 
 
 // 🧩 SERVICIOS
