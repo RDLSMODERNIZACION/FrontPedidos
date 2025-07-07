@@ -18,6 +18,25 @@ function inicializarModuloServicios() {
   const cronogramaHasta = document.getElementById('cronogramaHasta');
   const cronogramaHoras = document.getElementById('cronogramaHoras');
 
+  const diasSemana = [
+    { valor: 'lunes', texto: 'Lunes' },
+    { valor: 'martes', texto: 'Martes' },
+    { valor: 'miercoles', texto: 'Miércoles' },
+    { valor: 'jueves', texto: 'Jueves' },
+    { valor: 'viernes', texto: 'Viernes' },
+    { valor: 'sabado', texto: 'Sábado' },
+    { valor: 'domingo', texto: 'Domingo' }
+  ];
+
+  function poblarDiasSelect(select) {
+    diasSemana.forEach(dia => {
+      const opt = document.createElement('option');
+      opt.value = dia.valor;
+      opt.textContent = dia.texto;
+      select.appendChild(opt);
+    });
+  }
+
   function ocultarTodasLasSecciones() {
     seccionMantenimiento.classList.add('d-none');
     seccionProfesionales.classList.add('d-none');
@@ -31,6 +50,12 @@ function inicializarModuloServicios() {
   // Mostrar directamente al cargar
   opcionesServicios.classList.remove('d-none');
   ocultarTodasLasSecciones();
+
+  // Poblar los select con días de la semana
+  if (cronogramaDesde && cronogramaHasta) {
+    poblarDiasSelect(cronogramaDesde);
+    poblarDiasSelect(cronogramaHasta);
+  }
 
   // Escuchar cambios en los radios
   tipoServicioRadios.forEach(radio => {
