@@ -28,6 +28,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const vista = link.getAttribute('data-vista');
         if (vista) {
           cargarVista(vista);
+          // 👇 Aquí cerrás la sidebar móvil si está abierta
+      const sidebarMovil = document.querySelector('.offcanvas.show');
+      if (sidebarMovil) {
+        const instancia = bootstrap.Offcanvas.getInstance(sidebarMovil);
+        if (instancia) instancia.hide();
+      }
         }
       }
     });
