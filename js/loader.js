@@ -1,6 +1,6 @@
-const baseURL = document.currentScript?.src
+window.BASE_URL = document.currentScript?.src
   .replace(/\/js\/loader\.js.*$/, '') || '';
-window.BASE_URL = baseURL;
+
 
 
 (async function iniciarLoader() {
@@ -52,7 +52,7 @@ if (modo === "editar" && id) {
 
     console.log(`✅ Usuario cargado: ${nombre} - Secretaría: ${secretaria}`);
 
-    const response = await fetch(`${baseURL}/config/config_secretarias.json`);
+    const response = await fetch(`${window.BASE_URL}/config/config_secretarias.json`);
     const texto = await response.text();
     console.log('🧩 Respuesta recibida:', texto);
 
@@ -141,7 +141,7 @@ modulosActivos.forEach(m => m.remove());
 
     // 🚀 Ahora cargar el formulario.js, pero solo si todo salió bien
     const scriptFormulario = document.createElement('script');
-    scriptFormulario.src = `${baseURL}/js/formulario.js`;
+    scriptFormulario.src = `${window.BASE_URL}/js/formulario.js`;
     scriptFormulario.type = 'module'; // <- 🔥 ESTO ES CLAVE
   document.body.appendChild(scriptFormulario);
 
@@ -180,7 +180,7 @@ function esperarElemento(selector) {
 async function cargarModulo(nombreModulo) {
   try {
     console.log(`⏳ Intentando cargar HTML de módulo: ${nombreModulo}`);
-    const response = await fetch(`${baseURL}/modulos/${nombreModulo}/${nombreModulo}.html`);
+    const response = await fetch(`${window.BASE_URL}/modulos/${nombreModulo}/${nombreModulo}.html`);
     
     if (!response.ok) {
       throw new Error(`No se pudo cargar el HTML del módulo "${nombreModulo}". Estado: ${response.status}`);
@@ -192,7 +192,7 @@ async function cargarModulo(nombreModulo) {
     await new Promise(resolve => setTimeout(resolve, 0)); // Esperar 1 frame para asegurar que el DOM procese
 
     const script = document.createElement('script');
-    script.src = `${baseURL}/modulos/${nombreModulo}/${nombreModulo}.js`;
+    script.src = `${window.BASE_URL}/modulos/${nombreModulo}/${nombreModulo}.js`;
     script.defer = true;
     document.body.appendChild(script);
 
