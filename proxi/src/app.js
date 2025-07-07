@@ -12,7 +12,8 @@ const app = express();
 app.use(cors({ origin: FRONTEND_ORIGIN || '*' }));
 app.use(helmet());
 app.use(compression());
-app.use(express.json());
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 app.use(morgan('[:date[iso]] :method :url :status - :response-time ms', { stream }));
 
 app.use('/api', apiRoutes);
@@ -21,4 +22,3 @@ app.use((req, res) => {
   res.status(404).json({ estado: 'error', mensaje: 'Endpoint no encontrado' });
 });
 
-export default app;
