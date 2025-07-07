@@ -22,3 +22,5 @@ app.use((req, res) => {
   res.status(404).json({ estado: 'error', mensaje: 'Endpoint no encontrado' });
 });
 
+
+export default app;
