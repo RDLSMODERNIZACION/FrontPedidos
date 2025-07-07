@@ -1,29 +1,6 @@
 (async function iniciarLoaderReenvio() {
   console.log("🚀 loader-reenvio.js ejecutándose...");
 
-  // Detectar la ruta base para que los fetch funcionen correctamente
-  // tanto cuando la aplicación se sirve desde un subdirectorio de GitHub
-  // Pages (por ejemplo "CONTRATACIONES1") como desde la raíz del dominio.
-
-  const scriptSrc = document.currentScript?.src || '';
-  let baseURL = scriptSrc.replace(/\/js\/reenvio\/loader-reenvio\.js.*$/, '');
-
-  const repoName = 'CONTRATACIONES1';
-  const repoRegex = new RegExp(`/${repoName}(?=/|$)`);
-  if (!repoRegex.test(baseURL)) {
-    // El script se cargó desde la raíz del dominio. Intenta detectar si la
-    // página actual contiene el nombre del repositorio en su ruta para
-    // utilizarlo como base.
-    const locPath = window.location.pathname;
-    const match = locPath.match(new RegExp(`/(?:.+/)?(${repoName})(?=/)`));
-    if (match) {
-      baseURL = `${window.location.origin}/${match[1]}`;
-    }
-  }
-
-  // Exponer globalmente la URL base para que la utilicen los módulos cargados dinámicamente
-  window.BASE_URL_REENVIO = baseURL;
-
   try {
     const urlParams = new URLSearchParams(window.location.search);
     const id = urlParams.get("id");
@@ -42,91 +19,100 @@
       return;
     }
 
+    console.log("📝 Pedido encontrado:", pedido);
+
+    // 👇 rellenar los campos fijos del formulario
     const campoId = document.querySelector('#id-tramite');
     if (campoId) campoId.value = pedido.IDTRAMITE || '';
+
+    const campoModulo = document.querySelector('input[name="modulo"]');
+    if (campoModulo) campoModulo.value = (pedido.MODULO || '').trim();
+
+    const campoSecretaria = document.querySelector('input[name="secretaria"]');
+    if (campoSecretaria) campoSecretaria.value = (pedido.Secretaria || '').trim();
 
     const campoObservacion = document.querySelector('#observacion');
     if (campoObservacion) campoObservacion.value = pedido["MOTIVO OBSERVACION"] || '';
 
-    const campoDetalle = document.querySelector('#detalle');
-    if (campoDetalle) campoDetalle.value = pedido["DETALLE"] || '';
+    // 👇 mostrar los demás campos editables dinámicamente
+    mostrarCamposConDatos(pedido);
 
-    console.log("📝 Pedido encontrado:", pedido);
-    console.log("🧩 MODULO bruto:", pedido.MODULO);
-
-    const modulosRaw = pedido.MODULO || "";
-    const modulos = modulosRaw
-      .split(",")
-      .map(m => m.trim().replace(/^["']|["']$/g, '').toLowerCase())
-      .filter(Boolean);
-
-    console.log("🧩 Módulos detectados:", modulos);
-
-    const campoModulo = document.querySelector('input[name="modulo"]');
-    if (campoModulo) campoModulo.value = modulos.join(', ');
-
-    const campoSecretaria = document.querySelector('input[name="secretaria"]');
-    if (campoSecretaria && pedido.Secretaria) campoSecretaria.value = pedido.Secretaria.trim();
-
-
-    // … ya dentro del try, después de encontrar el pedido:
-const campoNombreUsuario = document.querySelector('#nombre-usuario');
-const campoSecretariaUsuario = document.querySelector('#secretaria-usuario');
-
-if (campoNombreUsuario && pedido.NOMBRE) campoNombreUsuario.value = pedido.NOMBRE.trim();
-if (campoSecretariaUsuario && pedido.Secretaria) campoSecretariaUsuario.value = pedido.Secretaria.trim();
-
-
-    // Cargar dinámicamente cada módulo
-    for (const modulo of modulos) {
-      try {
-        const htmlResponse = await fetch(`${baseURL}/modulos/${modulo}/${modulo}.html`);
-        if (!htmlResponse.ok) throw new Error(`No se pudo cargar HTML de "${modulo}"`);
-        const html = await htmlResponse.text();
-        document.getElementById("contenedor-reenvio").insertAdjacentHTML("beforeend", html);
-
-        const script = document.createElement("script");
-        script.src = `${baseURL}/modulos/${modulo}/${modulo}.js`;
-        document.body.appendChild(script);
-
-       await new Promise(resolve => {
-  script.onload = async () => {
-    console.log(`✅ Módulo ${modulo} cargado`);
-
-    const nombreFuncion = `inicializarModulo${capitalizarPrimeraLetra(modulo)}`;
-    if (typeof window[nombreFuncion] === 'function') {
-      try {
-        await window[nombreFuncion]();
-        console.log(`🚀 ${nombreFuncion}() ejecutado`);
-      } catch (err) {
-        console.error(`❌ Error en ${nombreFuncion}():`, err);
-      }
-    } else {
-      console.warn(`⚠️ No se encontró ${nombreFuncion}() para inicializar ${modulo}`);
-    }
-
-    resolve();
-  };
-});
-
-
-      } catch (modError) {
-        console.error(`❌ Error al cargar módulo "${modulo}":`, modError);
-      }
-    }
-
-    console.log("✅ Todos los módulos cargados y listos.");
-    window.todosLosModulosListos = true;
+    console.log("✅ Datos cargados y listos para editar.");
 
   } catch (error) {
     console.error("❌ Error en loader-reenvio:", error);
     const contenedor = document.getElementById("contenedor-reenvio");
     if (contenedor) {
-      contenedor.innerHTML = `<div class="alert alert-danger">Error al cargar el pedido: ${error.message}</div>`;
+      contenedor.innerHTML =
+        `<div class="alert alert-danger">Error al cargar el pedido: ${error.message}</div>`;
     }
   }
 })();
 
-function capitalizarPrimeraLetra(texto) {
-  return texto.charAt(0).toUpperCase() + texto.slice(1);
+
+function mostrarCamposConDatos(pedido) {
+  const contenedor = document.getElementById("contenedor-reenvio");
+  if (!contenedor) return;
+
+  contenedor.innerHTML = ""; // limpiamos
+
+  const camposExcluir = [
+    "IDTRAMITE",
+    "FECHA ACTUAL",
+    "FECHA APROBACION",
+    "MODULO",
+    "Secretaria",
+    "Nombre",
+    "AUTORIZACION",
+    "Carpeta Drive URL",
+    "ESTADO APROBACION",
+    "MOTIVO OBSERVACION",
+    "Contrataciones / Compra",
+    "GeneralPresupuesto1",
+    "GeneralPresupuesto2"
+  ];
+
+  Object.entries(pedido).forEach(([clave, valor]) => {
+    if (valor === null || valor === undefined) return;
+
+    if (typeof valor === "string" && valor.trim() === "") return;
+
+    if (camposExcluir.includes(clave)) return;
+
+    const div = document.createElement("div");
+    div.classList.add("mb-3");
+
+    const label = document.createElement("label");
+    label.classList.add("form-label");
+    label.textContent = clave;
+
+    let input;
+    if (typeof valor === "string" && valor.length > 50) {
+      input = document.createElement("textarea");
+      input.rows = 2;
+    } else {
+      input = document.createElement("input");
+      input.type = "text";
+    }
+
+    input.classList.add("form-control");
+    input.name = clave;
+
+    // 👉 si parece una fecha ISO válida, formateamos
+    if (typeof valor === "string" && /^\d{4}-\d{2}-\d{2}T/.test(valor)) {
+      const fecha = new Date(valor);
+      if (!isNaN(fecha)) {
+        const dia = String(fecha.getDate()).padStart(2, '0');
+        const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+        const anio = fecha.getFullYear();
+        valor = `${dia}/${mes}/${anio}`;
+      }
+    }
+
+    input.value = valor;
+
+    div.appendChild(label);
+    div.appendChild(input);
+    contenedor.appendChild(div);
+  });
 }
