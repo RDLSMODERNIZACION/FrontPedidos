@@ -21,10 +21,10 @@ export function obtenerDatosAlquiler() {
     modulo.querySelector('#detalleOtrosAlquiler')?.value || '';
 
   datos.requiereCombustible =
-    document.getElementById('combustibleAlquiler')?.checked || false;
+    document.getElementById('combustibleAlquiler')?.checked ? 'SI' : 'NO';
 
   datos.requiereChofer =
-    document.getElementById('choferAlquiler')?.checked || false;
+    document.getElementById('choferAlquiler')?.checked ? 'SI' : 'NO';
 
   datos.cronogramaDesde =
     document.getElementById('cronogramaDesde')?.value || '';
