@@ -54,21 +54,7 @@ export async function reenviarPedido(datosBase) {
 
     console.log("📦 Payload completo para reenviar:", payload);
 
-    // 📝 Validaciones
-    const esValidoGeneral = validarDatosGenerales(payload);
-    console.log("✅ validarDatosGenerales:", esValidoGeneral);
-
-    const esValidoModulo = validarModuloEspecifico(payload.modulo, payload);
-    console.log("✅ validarModuloEspecifico:", esValidoModulo);
-
-    if (!esValidoGeneral || !esValidoModulo) {
-      mostrarModalError('❌ Los datos no son válidos para reenviar.');
-      if (boton) {
-        boton.disabled = false;
-        boton.innerText = '🚀 Reenviar pedido corregido';
-      }
-      return;
-    }
+   
 
     const res = await fetch(API_URL_REENVIAR_PEDIDO, {
       method: 'POST',

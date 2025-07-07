@@ -7,6 +7,8 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
+  
+
   botonReenviar.addEventListener("click", () => {
     const datos = {
       idTramite: document.getElementById("id-tramite")?.value || "",
