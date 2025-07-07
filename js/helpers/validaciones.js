@@ -51,17 +51,21 @@ function validarModuloGeneral(datos) {
     return false;
   }
 
+
+
+    // Validación 3: período obligatorio
+  if (!datos.fechaperiododesde?.trim() || !datos.fechaperiodohasta?.trim()) {
+    mostrarModalError('Debe completarse el período: fecha desde y hasta.');
+    return false;
+  }
+
   // Validación 2: presupuesto obligatorio
   if (!datos.presupuesto?.trim()) {
     mostrarModalError('Debe completarse el campo "presupuesto".');
     return false;
   }
 
-  // Validación 3: período obligatorio
-  if (!datos.fechaperiododesde?.trim() || !datos.fechaperiodohasta?.trim()) {
-    mostrarModalError('Debe completarse el período: fecha desde y hasta.');
-    return false;
-  }
+
 
   const fechaDesdeTramite = parseFecha(datos.fechadesde);
   const fechaInicioPeriodo = parseFecha(datos.fechaperiododesde);
