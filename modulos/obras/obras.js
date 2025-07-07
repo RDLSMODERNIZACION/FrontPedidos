@@ -1,5 +1,15 @@
 console.log("✅ obras.js cargado correctamente");
 
+function detectarBaseURL() {
+  if (window.BASE_URL_REENVIO) return window.BASE_URL_REENVIO;
+
+  // Detecta el subdirectorio del repo (para GitHub Pages)
+  const pathParts = window.location.pathname.split('/');
+  const repoName = pathParts.length > 1 ? `/${pathParts[1]}` : '';
+  return `${window.location.origin}${repoName}`;
+}
+
+
 function inicializarModuloObras() {
   console.log("🚀 Inicializando módulo Obras...");
 
@@ -71,7 +81,8 @@ async function cargarListaObrasExistentes() {
     const obraSelect = document.getElementById('obra');
     if (!obraSelect) return;
 
-    const base = window.BASE_URL_REENVIO || '';
+    const base = detectarBaseURL();
+
     const url = `${base}/componentes/listas/obras_existentes.json`;
     const res = await fetch(url);
     if (!res.ok) {
