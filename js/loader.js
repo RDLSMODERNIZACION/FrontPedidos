@@ -1,5 +1,7 @@
 const baseURL = document.currentScript?.src
   .replace(/\/js\/loader\.js.*$/, '') || '';
+window.BASE_URL = baseURL;
+
 
 (async function iniciarLoader() {
   console.log('🚀 loader.js ejecutándose...');

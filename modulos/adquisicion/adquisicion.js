@@ -1,30 +1,17 @@
 console.log("✅ carga_pedidos.js cargado correctamente.");
 
 function inicializarModuloAdquisicion() {
-  console.log("✅ Inicializando módulo adquisición.");
+  console.log("✅ Inicializando módulo adquisición (modo manual por defecto).");
 
   const opcionesCarga = document.getElementById('opcionesCarga');
-  const modoManual = document.getElementById('modoManual');
-  const modoArchivo = document.getElementById('modoArchivo');
   const seccionManual = document.getElementById('seccionManual');
-  const seccionArchivo = document.getElementById('seccionArchivo');
   const agregarItemBtn = document.getElementById('agregarItemBtn');
   const tablaItemsBody = document.getElementById('tablaItemsBody');
 
-  // Mostrar contenedor principal (ya no depende de switch)
-  opcionesCarga.classList.remove('d-none');
+  opcionesCarga?.classList.remove('d-none');
+  seccionManual?.classList.remove('d-none');
 
-  // Mostrar el tipo de carga elegido
-  function actualizarVistaModoCarga() {
-    seccionManual.classList.toggle('d-none', !modoManual.checked);
-    seccionArchivo.classList.toggle('d-none', !modoArchivo.checked);
-  }
-
-  modoManual.addEventListener('change', actualizarVistaModoCarga);
-  modoArchivo.addEventListener('change', actualizarVistaModoCarga);
-
-  // Agregar ítem
-  agregarItemBtn.addEventListener('click', () => {
+  function agregarItem() {
     const fila = document.createElement('tr');
     fila.innerHTML = `
       <td><input type="text" class="form-control" name="descripcion[]" required></td>
@@ -35,11 +22,16 @@ function inicializarModuloAdquisicion() {
     `;
     tablaItemsBody.appendChild(fila);
 
-    // Eliminar ítem
     fila.querySelector('.eliminarFila').addEventListener('click', () => {
       fila.remove();
     });
-  });
+  }
+
+  // 👉 Asociar al botón
+  agregarItemBtn?.addEventListener('click', agregarItem);
+
+  // 👉 Agregar un ítem por defecto al cargar
+  agregarItem();
 }
 
 document.addEventListener('DOMContentLoaded', inicializarModuloAdquisicion);
