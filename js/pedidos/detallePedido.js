@@ -16,52 +16,52 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function cargarDetallePedido(id) {
-  const usuario = JSON.parse(localStorage.getItem("usuario"));
+ const usuario = JSON.parse(localStorage.getItem("usuario"));
 
-  const response = await fetch("https://script.google.com/macros/s/AKfycbxPNiF3miRa9Bv0JppagI8X7RJxNVGJepQo-kg3pIZpBYgLdSn11hGlK-HOnmBUegzC3Q/exec");
-  const pedidos = await response.json();
+const response = await fetch("https://script.google.com/macros/s/AKfycbxPNiF3miRa9Bv0JppagI8X7RJxNVGJepQo-kg3pIZpBYgLdSn11hGlK-HOnmBUegzC3Q/exec");
+const pedidos = await response.json();
 
-  const pedido = pedidos.find(p => p.IDTRAMITE === id);
+const pedido = pedidos.find(p => p.IDTRAMITE === id);
 
-  if (!pedido) {
-    document.getElementById('info-pedido').innerHTML = `
-      <div class="alert alert-warning">⚠️ El pedido con ID <strong>${id}</strong> no fue encontrado.</div>
-    `;
-    return;
-  }
-
-  const carpetaURL = pedido["Carpeta Drive URL"]?.trim();
-  const linkHTML = carpetaURL
-    ? `<a href="${carpetaURL}" target="_blank">📎 Ver carpeta</a>`
-    : '—';
-
-  const infoHTML = `
-    <table class="table table-bordered">
-      <tr><th>ID Trámite</th><td>${pedido.IDTRAMITE}</td></tr>
-      <tr><th>Servicio</th><td>${pedido.MODULO}</td></tr>
-      <tr><th>Estado</th><td id="estado-pedido">${pedido["ESTADO APROBACION"]}</td></tr>
-      <tr><th>Secretaría</th><td>${pedido.Secretaria}</td></tr>
-      <tr><th>Fecha</th><td>${formatearFecha(pedido["FECHA ACTUAL"])}</td></tr>
-      <tr><th>Archivo</th><td>${linkHTML}</td></tr>
-    </table>
+if (!pedido) {
+  document.getElementById('info-pedido').innerHTML = `
+    <div class="alert alert-warning">⚠️ El pedido con ID <strong>${id}</strong> no fue encontrado.</div>
   `;
-
-  document.getElementById('info-pedido').innerHTML = infoHTML;
-
-  const secretaria = (usuario.secretaria || "").toLowerCase().trim();
-  const estado = (pedido["ESTADO APROBACION"] || "").toLowerCase().trim();
-  console.log("🔍 Secretaría detectada:", secretaria);
-  console.log("📄 Estado del pedido:", estado);
-
-  const secretariasPermitidas = ["economía", "juzgado de faltas"];
-  const puedeAprobar = secretariasPermitidas.includes(secretaria);
-
-  if ((estado === "pendiente" || estado === "reenviado") && puedeAprobar) {
-    document.getElementById('acciones-pedido').style.display = 'flex';
-    console.log("✅ Botones mostrados");
-} else {
-    console.log("❌ Botones ocultos (estado o secretaría no válida)");
+  return;
 }
+
+// Resto del render del pedido...
+const carpetaURL = pedido["Carpeta Drive URL"]?.trim();
+const linkHTML = carpetaURL
+  ? `<a href="${carpetaURL}" target="_blank">📎 Ver carpeta</a>`
+  : '—';
+
+const infoHTML = `
+  <table class="table table-bordered">
+    <tr><th>ID Trámite</th><td>${pedido.IDTRAMITE}</td></tr>
+    <tr><th>Servicio</th><td>${pedido.MODULO}</td></tr>
+    <tr><th>Estado</th><td id="estado-pedido">${pedido["ESTADO APROBACION"]}</td></tr>
+    <tr><th>Secretaría</th><td>${pedido.Secretaria}</td></tr>
+    <tr><th>Fecha</th><td>${formatearFecha(pedido["FECHA ACTUAL"])}</td></tr>
+    <tr><th>Archivo</th><td>${linkHTML}</td></tr>
+  </table>
+`;
+
+document.getElementById('info-pedido').innerHTML = infoHTML;
+
+const estado = (pedido["ESTADO APROBACION"] || "").toLowerCase().trim();
+
+console.log("👤 Tipo usuario:", usuario.tipo);
+console.log("📄 Estado del pedido:", estado);
+
+// 🔒 Solo si es ADMINISTRADOR y el estado es válido
+if ((estado === "pendiente" || estado === "reenviado") && usuario.tipo === "Administrador") {
+  document.getElementById('acciones-pedido').style.display = 'flex';
+  console.log("✅ Botones mostrados para Administrador");
+} else {
+  console.log("❌ Botones ocultos (no es administrador o estado inválido)");
+}
+
 
 
   // Mostrar motivo si corresponde
