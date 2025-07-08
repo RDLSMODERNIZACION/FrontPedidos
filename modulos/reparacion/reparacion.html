@@ -1,16 +1,11 @@
 <div class="card shadow-sm mb-4 modulo" data-modulo="reparacion">
   <div class="card-body position-relative">
 
-    <!-- Botón de ayuda arriba -->
     <div class="position-absolute top-0 end-0 mt-3 me-3 d-flex align-items-center">
-      <button type="button" class="btn btn-link p-0 ms-2" id="ayudaReparacionBtn" style="font-size: 1.5rem;" title="¿Qué significa esto?">
-        
-      </button>
+      <button type="button" class="btn btn-link p-0 ms-2" id="ayudaReparacionBtn" style="font-size: 1.5rem;" title="¿Qué significa esto?"></button>
     </div>
 
     <h5 class="text-primary fw-bold mb-4">¿Qué tipo de reparación desea solicitar?</h5>
-
-    
 
     <!-- Opciones de reparación -->
     <div id="opcionesReparacion">
@@ -29,12 +24,13 @@
 
       <!-- Sección Maquinaria -->
       <div id="seccionMaquinaria" class="d-none">
-        <label class="form-label mb-2">Unidades a reparar:</label>
+        <label class="form-label mb-2">Unidad a reparar:</label>
         <div id="contenedorMaquinarias">
           <div class="row align-items-start mb-3 maquinaria-item">
             <div class="col-md-6">
               <select class="form-select unidadMaquinaria" name="objeto" required>
                 <option value="">Seleccione una unidad</option>
+                <!-- aquí puedes inyectar las opciones con JS -->
               </select>
             </div>
             <div class="col-md-6">
@@ -42,7 +38,6 @@
             </div>
           </div>
         </div>
-        <button type="button" class="btn btn-sm btn-outline-primary" id="agregarMaquinariaBtn">➕ Agregar otra unidad</button>
       </div>
 
       <!-- Sección Otros -->
