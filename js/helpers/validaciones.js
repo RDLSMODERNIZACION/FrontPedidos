@@ -91,10 +91,17 @@ function validarModuloGeneral(datos) {
     fechaDesdeTramite.getFullYear() === hoy.getFullYear();
 
   if (!mismaFecha) {
-    if (!datos.presupuesto1?.trim() || !datos.presupuesto2?.trim()) {
-      mostrarModalError('Cuando la fecha de inicio no es hoy, deben completarse los dos presupuestos adicionales.');
-      return false;
-    }
+    // Validación de presupuesto1
+if (!datos.presupuesto1 || datos.presupuesto1.base64?.trim() === "") {
+  mostrarModalError('Debe completarse el archivo "presupuesto 1".');
+  return false;
+}
+
+// Validación de presupuesto2
+if (!datos.presupuesto2 || datos.presupuesto2.base64?.trim() === "") {
+  mostrarModalError('Debe completarse el archivo "presupuesto 2".');
+  return false;
+}
   }
 
   // Observación es opcional
