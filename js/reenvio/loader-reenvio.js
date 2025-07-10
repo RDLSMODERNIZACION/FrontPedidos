@@ -69,7 +69,8 @@ function mostrarCamposConDatos(pedido) {
     "MOTIVO OBSERVACION",
     "Contrataciones / Compra",
     "GeneralPresupuesto1",
-    "GeneralPresupuesto2"
+    "GeneralPresupuesto2",
+    "LinkPagina"
   ];
 
   Object.entries(pedido).forEach(([clave, valor]) => {
