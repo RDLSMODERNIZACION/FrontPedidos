@@ -55,7 +55,7 @@ function inicializarModuloAlquiler() {
 async function cargarListaMaquinariaAlquiler() {
   try {
     const tipoMaquinariaSelect = document.getElementById('tipoMaquinariaAlquiler');
-    const maquinaria = await fetch('../componentes/listas/maquinaria.json').then(r => r.json());
+    const maquinaria = await fetch('../componentes/listas/tipomaquinas.json').then(r => r.json());
 
     tipoMaquinariaSelect.innerHTML = '<option value="">Seleccione tipo de maquinaria...</option>';
 
