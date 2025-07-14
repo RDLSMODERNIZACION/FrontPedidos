@@ -34,4 +34,5 @@ function inicializarModuloAdquisicion() {
   agregarItem();
 }
 
-document.addEventListener('DOMContentLoaded', inicializarModuloAdquisicion);
+window.inicializarModuloAdquisicion = inicializarModuloAdquisicion;
+

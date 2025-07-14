@@ -87,9 +87,8 @@ function obtenerDatosReparacion() {
 }
 
 // Inicializar al cargar DOM
-document.addEventListener('DOMContentLoaded', () => {
-  inicializarModuloReparacion();
-  window.obtenerDatosReparacion = obtenerDatosReparacion;
-});
+window.inicializarModuloReparacion = inicializarModuloReparacion;
+window.obtenerDatosReparacion = obtenerDatosReparacion;
+
 
 console.log("✅ reparacion.js completamente inicializado y listo");

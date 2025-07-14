@@ -78,4 +78,7 @@ function inicializarModuloServicios() {
   });
 }
 
+window.inicializarModuloServicios = inicializarModuloServicios;
+
+
 document.addEventListener('DOMContentLoaded', inicializarModuloServicios);
