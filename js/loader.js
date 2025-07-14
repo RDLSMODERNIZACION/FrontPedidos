@@ -140,15 +140,7 @@ modulosActivos.forEach(m => m.remove());
     console.log('✅ Todos los módulos cargados exitosamente.');
 
     // 🚀 Ahora cargar el formulario.js, pero solo si todo salió bien
-    const scriptFormulario = document.createElement('script');
-    scriptFormulario.src = `${window.BASE_URL}/js/formulario.js`;
-    scriptFormulario.type = 'module'; // <- 🔥 ESTO ES CLAVE
-  document.body.appendChild(scriptFormulario);
-
-
-    scriptFormulario.onload = () => {
-      console.log('✅ formulario.js cargado y ejecutado.');
-    };
+ 
 
   } catch (error) {
     console.error('❌ Error durante la carga inicial:', error);
@@ -191,10 +183,11 @@ async function cargarModulo(nombreModulo) {
 
     await new Promise(resolve => setTimeout(resolve, 0)); // Esperar 1 frame para asegurar que el DOM procese
 
-    const script = document.createElement('script');
-    script.src = `${window.BASE_URL}/modulos/${nombreModulo}/${nombreModulo}.js`;
-    script.defer = true;
-    document.body.appendChild(script);
+   const script = document.createElement('script');
+script.src = `${window.BASE_URL}/modulos/${nombreModulo}/${nombreModulo}.js`;
+script.type = 'module';
+document.body.appendChild(script);
+
 
     script.onload = () => {
       console.log(`✅ Módulo ${nombreModulo} cargado.`);

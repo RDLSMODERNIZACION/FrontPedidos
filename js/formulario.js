@@ -40,7 +40,7 @@ function esperarModuloCargado(nombreModulo) {
 }
 
 // 🔷 Aquí envuelves todo en una IIFE
-(async () => {
+export async function inicializarFormulario() {
   await esperarElemento('#btnEnviarFormulario');
   const boton = document.getElementById('btnEnviarFormulario');
 
@@ -138,7 +138,7 @@ function esperarModuloCargado(nombreModulo) {
         }
       }
 
-      console.log('🧪 JSON FINAL A ENVIAR:', datosRecopilados);
+            console.log('🧪 JSON FINAL A ENVIAR:', datosRecopilados);
 
       await enviarFormularioSinRespuesta(datosRecopilados, boton);
 
@@ -149,4 +149,4 @@ function esperarModuloCargado(nombreModulo) {
       boton.innerText = '📤 Enviar Formulario';
     }
   });
-})();
+}

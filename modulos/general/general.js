@@ -1,4 +1,6 @@
 console.log("✅ general.js cargado correctamente");
+import { inicializarFormulario } from '../../js/formulario.js';
+
 
 window.inicializarModuloGeneral = async function () {
   console.log("🚀 Inicializando módulo General…");
@@ -50,7 +52,11 @@ window.inicializarModuloGeneral = async function () {
   }
 
   console.log("✅ Flatpickr inicializado correctamente en #fecha y #periodo");
+
+  inicializarFormulario();
 };
+
+  
 
 async function asegurarFlatpickr() {
   if (typeof flatpickr !== 'undefined') {
@@ -112,6 +118,13 @@ window.obtenerDatosGeneral = function () {
     }
   });
 
+
+
   console.log("📦 Datos capturados de [general]:", datos);
   return datos;
+
+
+
 };
+
+
