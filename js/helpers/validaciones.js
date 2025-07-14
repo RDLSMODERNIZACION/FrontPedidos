@@ -176,46 +176,31 @@ function validarModuloReparacion(datos) {
   }
 
   if (datos.rubro === 'maquinaria') {
-    // Validar objeto como JSON con al menos una unidad válida
-    let unidades = [];
-
-    try {
-      unidades = JSON.parse(datos.objeto);
-    } catch (e) {
-      mostrarModalError('La lista de unidades a reparar no está en un formato válido.');
-      return false;
-    }
-
-    const hayUnidadValida = Array.isArray(unidades) && unidades.some(u =>
-      u.unidad?.trim() && u.detalle?.trim()
-    );
-
-    if (!hayUnidadValida) {
-      mostrarModalError('Debe incluir al menos una unidad válida a reparar.');
-      return false;
-    }
-
-    // NO se exige detalleReparacion en maquinaria
-
-  } else if (datos.rubro === 'otros') {
     if (!datos.objeto?.trim()) {
-      mostrarModalError('Debe especificarse qué objeto se va a reparar.');
+      mostrarModalError('Debe especificar la unidad a reparar.');
       return false;
     }
 
     if (!datos.detalleReparacion?.trim()) {
-      mostrarModalError('Debe describirse el detalle de la reparación.');
+      mostrarModalError('Debe especificar el detalle de la reparación.');
+      return false;
+    }
+  }
+
+  if (datos.rubro === 'otros') {
+    if (!datos.objeto?.trim()) {
+      mostrarModalError('Debe especificar el nombre del elemento a reparar.');
       return false;
     }
 
-  } else {
-    mostrarModalError('El rubro seleccionado no es válido para reparación.');
-    return false;
+    if (!datos.detalleReparacion?.trim()) {
+      mostrarModalError('Debe especificar el detalle de la reparación.');
+      return false;
+    }
   }
 
   return true;
 }
-
 
 
 
@@ -289,11 +274,7 @@ function validarModuloServicios(datos) {
         return false;
       }
 
-      if (!datos.cronogramaHoras?.trim() || datos.cronogramaHoras === '0') {
-        mostrarModalError('Debe completarse la cantidad de horas del cronograma.');
-        return false;
-      }
-      break;
+      break; // 👈 ESTE FALTABA
 
     case 'otros':
       if (!datos.detalleMantenimiento?.trim()) {
@@ -309,6 +290,7 @@ function validarModuloServicios(datos) {
 
   return true;
 }
+
 
 
 
