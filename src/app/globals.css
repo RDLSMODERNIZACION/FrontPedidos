@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html, body { height: 100% }
+body {
+  @apply bg-bg text-white;
+  background:
+    radial-gradient(1200px 600px at 20% -10%, #1c2030, transparent),
+    radial-gradient(1000px 800px at 110% -20%, #1d1e2a, transparent),
+    theme(colors.bg);
+}
+
+.container { @apply max-w-6xl mx-auto px-4 md:px-6 }
+.card { @apply bg-panel border border-[#1b2132] rounded-2xl p-4 shadow-card }
+.btn { @apply bg-gradient-to-r from-brand to-brand2 text-white rounded-xl px-4 py-2 }
+.btn-ghost { @apply border border-[#2c3450] rounded-xl px-4 py-2 }
+.badge { @apply inline-flex items-center gap-2 rounded-full border border-[#2e3751] bg-[#1f2636] px-3 py-1 text-sm font-semibold text-[#dfe5f7] }
+.dot { @apply w-2 h-2 rounded-full inline-block }
+.dot.ok { background: #22c55e }
+.dot.warn { background: #f59e0b }
+.dot.bad { background: #ef4444 }
+.table { @apply w-full text-left }
+.table th, .table td { @apply border-b border-[#1b2132] py-3 px-3 }
+.table thead th { @apply bg-panel sticky top-0 z-10 text-sm text-[#cfd6e6] }
+.table tbody tr:hover { background: #121b2b }
+.icon-btn { @apply border border-[#2c3450] rounded-xl px-3 py-2 }
+.muted { @apply text-[#9aa3b2] }
+.kpi { @apply grid gap-1 }
+.kpi-label { @apply text-[#9aa3b2] }
+.kpi-value { @apply text-2xl font-bold }
+.drawer { @apply fixed inset-0 grid grid-cols-1 }
+.drawer.hidden { display: none }
+.drawer-body { @apply relative z-10 ml-auto w-full md:w-[640px] h-full bg-panel2 border-l border-[#1b2132] flex flex-col }
+.drawer-header { @apply flex items-center justify-between p-4 border-b border-[#1b2132] }
+.drawer-content { @apply p-4 overflow-auto grid gap-3 }
+.backdrop { @apply absolute inset-0 bg-black/50 backdrop-blur-sm }
