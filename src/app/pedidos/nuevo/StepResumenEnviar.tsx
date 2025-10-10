@@ -1,15 +1,15 @@
 // src/app/pedidos/nuevo/StepResumenEnviar.tsx
 'use client';
-import React from "react";
+import React, { Dispatch, SetStateAction, useMemo } from "react";
 import { CheckCircle2, AlertTriangle, FileText, Calendar, DollarSign } from "lucide-react";
 import { KV, Pill, Section, ProgressBar } from "./UI";
 import { fmtMoney, fmtDate } from "@/lib/utils";
 
-export default function StepResumenEnviar(props: {
+type Props = {
   summary: any;
   obrasForm: any;
   showJson: boolean;
-  setShowJson: (f: (s: boolean) => boolean) => void;
+  setShowJson: Dispatch<SetStateAction<boolean>>;
   sending: boolean;
   canSend: boolean;
   progress: number;
@@ -18,12 +18,12 @@ export default function StepResumenEnviar(props: {
   onBackAmbito: () => void;
   onBackModulo: () => void;
   sendError: string | null;
-}) {
-  const {
-    summary, obrasForm, showJson, setShowJson, sending, canSend, progress, handleEnviar,
-    onBackGeneral, onBackAmbito, onBackModulo, sendError
-  } = props;
+};
 
+export default function StepResumenEnviar({
+  summary, obrasForm, showJson, setShowJson, sending, canSend, progress, handleEnviar,
+  onBackGeneral, onBackAmbito, onBackModulo, sendError
+}: Props) {
   const g = summary?.generales ?? {};
   const amb = summary?.ambitoIncluido ?? "ninguno";
   const modSel = summary?.modulo_seleccionado ?? "-";
@@ -34,6 +34,21 @@ export default function StepResumenEnviar(props: {
   const itemsAdq = draft?.payload?.items ?? [];
   const hasItemsAdq = Array.isArray(itemsAdq) && itemsAdq.length > 0;
 
+  // Mensajes útiles si no se puede enviar aún
+  const requisitosFaltantes = useMemo(() => {
+    const faltan: string[] = [];
+    if (amb === "obra" && !anexoObraOk) faltan.push("Adjuntar Anexo 1 (PDF) para Obra");
+    if (modSel === "adquisicion" && !hasItemsAdq) faltan.push("Cargar al menos un ítem de Adquisición");
+    return faltan;
+  }, [amb, anexoObraOk, modSel, hasItemsAdq]);
+
+  const enviarDisabledTitle =
+    !canSend && requisitosFaltantes.length
+      ? `Faltan: ${requisitosFaltantes.join(" · ")}`
+      : !canSend
+        ? "Faltan completar requisitos antes de enviar"
+        : "";
+
   return (
     <div className="grid gap-4">
       {/* Encabezado + chips */}
@@ -41,7 +56,14 @@ export default function StepResumenEnviar(props: {
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold">Resumen final</h3>
           <div className="flex gap-2">
-            <button className="btn-ghost" onClick={() => setShowJson(!showJson)} disabled={sending}>
+            <button
+              className="btn-ghost"
+              onClick={() => setShowJson(s => !s)}
+              disabled={sending}
+              aria-pressed={showJson}
+              aria-label={showJson ? "Ocultar JSON" : "Ver JSON"}
+              title={showJson ? "Ocultar JSON" : "Ver JSON"}
+            >
               {showJson ? "Ocultar JSON" : "Ver JSON"}
             </button>
           </div>
@@ -67,6 +89,16 @@ export default function StepResumenEnviar(props: {
           )}
         </div>
       </section>
+
+      {/* Ayuda cuando no se puede enviar */}
+      {!sending && !canSend && requisitosFaltantes.length > 0 && (
+        <div className="rounded-2xl border border-amber-600 bg-amber-900/20 p-3 text-amber-100 text-sm">
+          <div className="font-medium mb-1">Para poder enviar, completá:</div>
+          <ul className="list-disc pl-5 space-y-1">
+            {requisitosFaltantes.map((t, i) => <li key={i}>{t}</li>)}
+          </ul>
+        </div>
+      )}
 
       {/* Dos columnas: Generales + Ambito / Módulo */}
       <div className="grid gap-4 lg:grid-cols-2">
@@ -228,7 +260,7 @@ export default function StepResumenEnviar(props: {
       )}
 
       {/* Barra de acciones sticky */}
-      <div className="sticky bottom-3 z-20">
+      <div className="sticky bottom-3 z-20" aria-busy={sending}>
         <div className="card flex flex-col sm:flex-row items-center gap-3 justify-between">
           {!sending ? (
             <>
@@ -237,10 +269,15 @@ export default function StepResumenEnviar(props: {
                 {canSend ? "Listo para enviar" : "Faltan completar requisitos antes de enviar"}
               </div>
               <div className="flex gap-2">
-                <button className="btn-ghost" onClick={onBackModulo}>
+                <button className="btn-ghost" onClick={onBackModulo} disabled={sending}>
                   Volver a Módulos
                 </button>
-                <button className="btn" disabled={!canSend} onClick={handleEnviar}>
+                <button
+                  className="btn"
+                  disabled={!canSend || sending}
+                  onClick={handleEnviar}
+                  title={enviarDisabledTitle}
+                >
                   Enviar
                 </button>
               </div>

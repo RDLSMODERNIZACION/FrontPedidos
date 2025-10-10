@@ -1,7 +1,7 @@
 // src/app/pedidos/nuevo/NuevoWizard.tsx
 'use client';
 
-import React from "react";
+import React, { useMemo } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import { Stepper } from "./UI";
 import StepGeneral from "./StepGeneral";
@@ -15,13 +15,24 @@ import { PREVIEW_MODE } from "./constants";
 export default function NuevoPedidoWizard() {
   const W = useWizard();
 
-  // ===== Resumen: compute canSend quickly from W.summary and forms
-  const draft = W.summary?.modulo_draft ?? {};
-  const itemsAdq = draft?.payload?.items ?? [];
-  const hasItemsAdq = Array.isArray(itemsAdq) && itemsAdq.length > 0;
-  const amb = W.summary?.ambitoIncluido ?? "ninguno";
-  const anexoObraOk = amb === "obra" ? Boolean((W.obrasForm.getValues?.() as any)?.anexo1_pdf?.[0]) : true;
-  const canSend = (!!W.summary?.modulo_seleccionado) && (amb !== "obra" || anexoObraOk) && (W.summary?.modulo_seleccionado !== "adquisicion" || hasItemsAdq);
+  // ===== Resumen: canSend derivado del summary y los forms
+  const canSend = useMemo(() => {
+    const draft = W.summary?.modulo_draft ?? {};
+    const itemsAdq = draft?.payload?.items ?? [];
+    const hasItemsAdq = Array.isArray(itemsAdq) && itemsAdq.length > 0;
+
+    const amb = W.summary?.ambitoIncluido ?? "ninguno";
+    const anexoObraOk =
+      amb === "obra"
+        ? Boolean((W.obrasForm.getValues?.() as any)?.anexo1_pdf?.[0])
+        : true;
+
+    return (
+      !!W.summary?.modulo_seleccionado &&
+      (amb !== "obra" || anexoObraOk) &&
+      (W.summary?.modulo_seleccionado !== "adquisicion" || hasItemsAdq)
+    );
+  }, [W.summary, W.obrasForm]);
 
   return (
     <RequireAuth>
@@ -75,11 +86,11 @@ export default function NuevoPedidoWizard() {
             summary={W.summary}
             obrasForm={W.obrasForm}
             showJson={W.showJson}
-            setShowJson={(v: boolean) => W.setShowJson(() => v)}
+            setShowJson={W.setShowJson}          // ✅ pasar setter directo (fix tipos)
             sending={W.sending}
             canSend={canSend}
             progress={W.progress}
-            handleEnviar={() => W.handleEnviar()}
+            handleEnviar={W.handleEnviar}
             onBackGeneral={() => W.setStep(1)}
             onBackAmbito={() => W.setStep(2)}
             onBackModulo={() => W.setStep(3)}
