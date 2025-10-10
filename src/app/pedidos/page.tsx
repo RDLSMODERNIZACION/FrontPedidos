@@ -18,6 +18,10 @@ import ApprovalActions from "@/components/ApprovalActions";
 import { canView, canModerate, isEconomiaAdmin, isAreaCompras, isSecretariaCompras } from "@/lib/roles";
 import { setEstadoPedido } from "@/lib/pedidosActions";
 
+// 👇 archivos (uploader + helper para detectar formal_pdf)
+import ArchivoFormalUploader from "@/components/pedidos/ArchivoFormalUploader";
+import { listPedidoArchivos, type PedidoArchivo } from "@/lib/pedidos";
+
 const SECRETARIAS = [
   "SECRETARÍA DE ECONOMIA HACIENDA Y FINANZAS PUBLICAS",
   "SECRETARÍA DE GESTIÓN AMBIENTAL Y DESARROLLO URBANO",
@@ -96,6 +100,28 @@ export default function Page() {
 
   // flag: falta secretaria en sesión
   const faltaSecretariaHdr = !auth?.user?.secretaria;
+
+  // ---------- Archivos: detectar si ya existe formal_pdf para el seleccionado ----------
+  const [hasFormal, setHasFormal] = useState<boolean>(false);
+  const [loadingArchivos, setLoadingArchivos] = useState<boolean>(false);
+
+  async function refreshArchivosForSelected(p: BackendPedido | null) {
+    if (!p) { setHasFormal(false); return; }
+    try {
+      setLoadingArchivos(true);
+      const archs: PedidoArchivo[] = await listPedidoArchivos(p.id);
+      setHasFormal(archs.some(a => a.kind === "formal_pdf"));
+    } catch {
+      // si falla, no bloqueamos la UI
+      setHasFormal(false);
+    } finally {
+      setLoadingArchivos(false);
+    }
+  }
+
+  useEffect(() => {
+    void refreshArchivosForSelected(selected);
+  }, [selected?.id]);
 
   return (
     <RequireAuth>
@@ -213,6 +239,12 @@ export default function Page() {
                 </Badge>
                 <Badge>{selected.solicitante ?? "—"}</Badge>
                 <Badge>{selected.secretaria}</Badge>
+                {/* Indicador si ya hay PDF formal */}
+                {loadingArchivos ? (
+                  <Badge>Archivos…</Badge>
+                ) : hasFormal ? (
+                  <Badge tone="ok">PDF firmado</Badge>
+                ) : null}
               </div>
 
               {/* Aviso si falta definir secretaría en la sesión */}
@@ -236,6 +268,8 @@ export default function Page() {
                     });
                     setSelected(s => (s ? { ...s, estado: "aprobado" } : s));
                     setItems(arr => arr.map(r => r.id === selected.id ? { ...r, estado: "aprobado" } : r));
+                    // al aprobar, refrescamos archivos para habilitar el uploader
+                    await refreshArchivosForSelected({ ...selected, estado: "aprobado" } as BackendPedido);
                   } finally {
                     setActionBusy(false);
                   }
@@ -251,6 +285,7 @@ export default function Page() {
                     });
                     setSelected(s => (s ? { ...s, estado: "en_revision" } : s));
                     setItems(arr => arr.map(r => r.id === selected.id ? { ...r, estado: "en_revision" } : r));
+                    // si vuelve a revisión, no borramos el flag (puede existir formal ya cargado)
                   } finally {
                     setActionBusy(false);
                   }
@@ -271,8 +306,12 @@ export default function Page() {
               </div>
 
               <div className="card">
-                <h4 className="text-base font-semibold mb-1">Archivos</h4>
-                <small className="text-[#9aa3b2]">No hay archivos (pendiente de endpoint/slots).</small>
+                <h4 className="text-base font-semibold mb-2">Archivos</h4>
+                <ArchivoFormalUploader
+                  pedidoId={selected.id}
+                  estado={selected.estado}
+                  onUploaded={() => setHasFormal(true)}  // al subir, marcamos que ya hay PDF
+                />
               </div>
             </div>
           ) : null}
