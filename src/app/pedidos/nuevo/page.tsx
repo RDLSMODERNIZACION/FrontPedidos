@@ -237,7 +237,7 @@ export default function NuevoPedidoWizard() {
       payload: { tipo_reparacion: "otros", que_reparar: v.que_reparar || "", detalle_reparacion: v.detalle_reparacion || "" } };
   }
 
-  // --- mapeo de ámbito UI -> enum DB ---
+  // --- mapeo de ámbito UI -> enum DB (por si lo necesitás a futuro) ---
   function mapAmbitoToDb(a: Ambito | null): "general" | "obra" | "mant_escuela" {
     if (a === "obra") return "obra";
     if (a === "mantenimientodeescuelas") return "mant_escuela";
@@ -245,92 +245,91 @@ export default function NuevoPedidoWizard() {
   }
 
   function buildFullPayload(): any {
-  const g = generalForm.getValues();
+    const g = generalForm.getValues();
 
-  // Enviar el valor de UI tal cual espera FastAPI
-  const tipoUi: "ninguno" | "obra" | "mantenimientodeescuelas" =
-    ambitoIncluido ?? "ninguno";
+    // Enviar el valor de UI tal cual espera FastAPI
+    const tipoUi: "ninguno" | "obra" | "mantenimientodeescuelas" =
+      ambitoIncluido ?? "ninguno";
 
-  // Ámbito
-  let ambito: any = { tipo: tipoUi };
-  if (tipoUi === "mantenimientodeescuelas") {
-    const v = escForm.getValues() as any;
-    ambito.escuelas = { escuela: v.escuela };
-  } else if (tipoUi === "obra") {
-    const v = obrasForm.getValues() as any;
-    ambito.obra = { obra_nombre: v.obra_nombre };
+    // Ámbito
+    let ambito: any = { tipo: tipoUi };
+    if (tipoUi === "mantenimientodeescuelas") {
+      const v = escForm.getValues() as any;
+      ambito.escuelas = { escuela: v.escuela };
+    } else if (tipoUi === "obra") {
+      const v = obrasForm.getValues() as any;
+      ambito.obra = { obra_nombre: v.obra_nombre };
+    }
+
+    // Módulo
+    let modulo: any = null;
+    if (moduloActivo === "servicios") {
+      const v = serviciosForm.getValues() as any;
+      modulo = {
+        tipo: "servicios",
+        tipo_servicio: v.tipo_servicio,
+        detalle_mantenimiento: v.detalle_mantenimiento || null,
+        tipo_profesional: v.tipo_profesional || null,
+        dia_desde: v.dia_desde || null,
+        dia_hasta: v.dia_hasta || null,
+      };
+    } else if (moduloActivo === "alquiler") {
+      const v = alquilerForm.getValues() as any;
+      modulo = {
+        tipo: "alquiler",
+        categoria: v.categoria,
+        uso_edificio: v.uso_edificio || null,
+        ubicacion_edificio: v.ubicacion_edificio || null,
+        uso_maquinaria: v.uso_maquinaria || null,
+        tipo_maquinaria: v.tipo_maquinaria || null,
+        requiere_combustible: !!v.requiere_combustible,
+        requiere_chofer: !!v.requiere_chofer,
+        cronograma_desde: v.cronograma_desde || null,
+        cronograma_hasta: v.cronograma_hasta || null,
+        horas_por_dia: v.horas_por_dia ? Number(v.horas_por_dia) : null,
+        que_alquilar: v.que_alquilar || null,
+        detalle_uso: v.detalle_uso || null,
+      };
+    } else if (moduloActivo === "adquisicion") {
+      const v = adquisicionForm.getValues() as any;
+      modulo = {
+        tipo: "adquisicion",
+        proposito: v.proposito || null,
+        modo_adquisicion: v.modo_adquisicion || "uno",
+        items: (v.items || []).map((it: any) => ({
+          descripcion: it.descripcion,
+          cantidad: it.cantidad ?? 1,
+          unidad: it.unidad || null,
+          precio_unitario: it.precio_unitario ?? null,
+        })),
+      };
+    } else if (moduloActivo === "reparacion") {
+      const v = repForm.getValues() as any;
+      modulo = {
+        tipo: "reparacion",
+        tipo_reparacion: v.tipo_reparacion,
+        unidad_reparar: v.unidad_reparar || null,
+        que_reparar: v.que_reparar || null,
+        detalle_reparacion: v.detalle_reparacion || null,
+      };
+    }
+
+    const hoy = new Date().toISOString().slice(0, 10);
+    const generales = {
+      secretaria: auth?.user?.secretaria ?? g.secretaria,
+      estado: g.estado ?? "enviado",
+      fecha_pedido: g.fecha_pedido ?? hoy,
+      fecha_desde: g.fecha_desde || null,
+      fecha_hasta: g.fecha_hasta || null,
+      presupuesto_estimado: g.presupuesto_estimado || null,
+      observaciones: g.observaciones || null,
+      created_by_username: auth?.user.username ?? undefined,
+    };
+
+    return { generales, ambito, modulo };
   }
 
-  // Módulo
-  let modulo: any = null;
-  if (moduloActivo === "servicios") {
-    const v = serviciosForm.getValues() as any;
-    modulo = {
-      tipo: "servicios",
-      tipo_servicio: v.tipo_servicio,
-      detalle_mantenimiento: v.detalle_mantenimiento || null,
-      tipo_profesional: v.tipo_profesional || null,
-      dia_desde: v.dia_desde || null,
-      dia_hasta: v.dia_hasta || null,
-    };
-  } else if (moduloActivo === "alquiler") {
-    const v = alquilerForm.getValues() as any;
-    modulo = {
-      tipo: "alquiler",
-      categoria: v.categoria,
-      uso_edificio: v.uso_edificio || null,
-      ubicacion_edificio: v.ubicacion_edificio || null,
-      uso_maquinaria: v.uso_maquinaria || null,
-      tipo_maquinaria: v.tipo_maquinaria || null,
-      requiere_combustible: !!v.requiere_combustible,
-      requiere_chofer: !!v.requiere_chofer,
-      cronograma_desde: v.cronograma_desde || null,
-      cronograma_hasta: v.cronograma_hasta || null,
-      horas_por_dia: v.horas_por_dia ? Number(v.horas_por_dia) : null,
-      que_alquilar: v.que_alquilar || null,
-      detalle_uso: v.detalle_uso || null,
-    };
-  } else if (moduloActivo === "adquisicion") {
-    const v = adquisicionForm.getValues() as any;
-    modulo = {
-      tipo: "adquisicion",
-      proposito: v.proposito || null,
-      modo_adquisicion: v.modo_adquisicion || "uno",
-      items: (v.items || []).map((it: any) => ({
-        descripcion: it.descripcion,
-        cantidad: it.cantidad ?? 1,
-        unidad: it.unidad || null,
-        precio_unitario: it.precio_unitario ?? null,
-      })),
-    };
-  } else if (moduloActivo === "reparacion") {
-    const v = repForm.getValues() as any;
-    modulo = {
-      tipo: "reparacion",
-      tipo_reparacion: v.tipo_reparacion,
-      unidad_reparar: v.unidad_reparar || null,
-      que_reparar: v.que_reparar || null,
-      detalle_reparacion: v.detalle_reparacion || null,
-    };
-  }
-
-  const hoy = new Date().toISOString().slice(0, 10);
-  const generales = {
-    secretaria: auth?.user?.secretaria ?? g.secretaria,
-    estado: g.estado ?? "enviado",
-    fecha_pedido: g.fecha_pedido ?? hoy,
-    fecha_desde: g.fecha_desde || null,
-    fecha_hasta: g.fecha_hasta || null,
-    presupuesto_estimado: g.presupuesto_estimado || null,
-    observaciones: g.observaciones || null,
-    created_by_username: auth?.user.username ?? undefined,
-  };
-
-  return { generales, ambito, modulo };
-}
-
-
-  // ====== State del resumen (DEBE estar antes de funciones que lo usan) ======
+  // ====== State del resumen ======
   const [summary, setSummary] = useState<any | null>(null);
   const [showJson, setShowJson] = useState(false);
   const [sending, setSending] = useState(false);
@@ -498,9 +497,8 @@ export default function NuevoPedidoWizard() {
                       </ul>
                     )}
                     <div className="flex gap-2 justify-end">
-                      {ambitoSelected !== "ninguno" && (
-                        <button className="btn" onClick={() => includeAmbito(ambitoSelected!)}>Incluir</button>
-                      )}
+                      {/* Aquí TypeScript ya sabe que NO es "ninguno", así que no ponemos condición */}
+                      <button className="btn" onClick={() => includeAmbito(ambitoSelected!)}>Incluir</button>
                     </div>
                   </>
                 )}
