@@ -1,26 +1,30 @@
 // src/lib/api.ts
 
 // =====================
-// Tipos de backend
+// Tipos del backend
 // =====================
 export type BackendPedido = {
   id: number;
-  id_tramite: string | null;
-  modulo: string | null;            // o tipo_ambito según vista
+  id_tramite: string | null;      // ej: "EXP-2025-0003"
+  modulo: string | null;          // "Servicios" | "Alquiler" | "Adquisición" | "Reparación" | null
   secretaria: string;
   solicitante: string | null;
-  estado: "borrador" | "enviado" | "en_revision" | "aprobado" | "rechazado" | "cerrado";
-  total: number | string | null;
-  creado: string;                   // ISO
-  updated_at?: string | null;
+  estado: string;                 // "borrador" | "enviado" | "en_revision" | "aprobado" | "rechazado" | "cerrado"
+  total: number | string | null;  // puede venir como string desde SQL
+  creado: string;                 // ISO (ej: "2025-10-10T01:54:52.186849Z")
+  updated_at?: string;
 
-  // Opcionales según tu vista
-  tipo_ambito?: string | null;
+  // Opcionales según la vista del backend
+  tipo_ambito?: string;
   observaciones?: string | null;
+  has_presupuesto_1?: boolean;
+  has_presupuesto_2?: boolean;
+  has_anexo1_obra?: boolean;
+  secretaria_id?: number;
 };
 
-export type PedidosListResp = {
-  items: BackendPedido[];
+export type Paginated<T> = {
+  items: T[];
   count: number;
   limit: number;
   offset: number;
@@ -29,71 +33,105 @@ export type PedidosListResp = {
 };
 
 // =====================
-// Helpers de fetch
+// Config base
+// =====================
+export const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
+
+// =====================
+// Helpers
 // =====================
 type HeaderMap = Record<string, string>;
 
+/** Construye una URL con query params de forma segura */
+function buildUrl(path: string, params?: Record<string, any>) {
+  const url = new URL(path, API_BASE);
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== null && v !== "") {
+        url.searchParams.set(k, String(v));
+      }
+    }
+  }
+  return url.toString();
+}
+
+/** Headers auth (sin claves undefined) */
 export function authHeaders(token?: string): HeaderMap {
-  // ✅ nunca devolvemos claves con undefined
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+/** Headers JSON + merge seguro */
 function jsonHeaders(extra?: HeaderMap): HeaderMap {
   const base: HeaderMap = { Accept: "application/json; charset=utf-8" };
   return extra ? { ...base, ...extra } : base;
 }
 
-function useMocks(): boolean {
-  return process.env.NEXT_PUBLIC_API_BASE === "" || process.env.USE_MOCKS === "true";
-}
-
-function buildUrl(path: string): string {
-  if (useMocks()) {
-    // rutas internas de Next (/api) para mocks
-    return `${process.env.NEXT_PUBLIC_VERCEL_URL ? "" : ""}/api${path}`;
-  }
-  const base = process.env.NEXT_PUBLIC_API_BASE || "";
-  return `${base}${path}`;
-}
-
+/** Manejo de errores HTTP con mensaje legible */
 async function ensureOk(res: Response) {
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`API error ${res.status}: ${text}`);
-  }
+  if (res.ok) return;
+  let msg = `HTTP ${res.status}`;
+  try {
+    const text = await res.text();
+    if (text) msg += ` — ${text}`;
+  } catch { /* noop */ }
+  throw new Error(msg);
 }
 
-// =====================
-// API genérica
-// =====================
-export async function api<T>(path: string, token?: string): Promise<T> {
-  const url = buildUrl(path);
-  const headers = jsonHeaders(authHeaders(token));
-  const res = await fetch(url, { cache: "no-store", headers });
+/* =========================================================
+ * Pedidos (listado)
+ * ========================================================= */
+
+/**
+ * Obtiene el listado paginado desde /ui/pedidos/list (backend real).
+ * Ejemplo:
+ *   getPedidos({ limit: 50, q: "escuelas", estado: "enviado", sort: "updated_at_desc" })
+ */
+export async function getPedidos(
+  params?: {
+    limit?: number;
+    offset?: number;
+    q?: string;
+    estado?: string;
+    sort?: string; // "updated_at_desc" | "created_at_desc" | "total_desc" | etc.
+  },
+  token?: string
+) {
+  const url = buildUrl("/ui/pedidos/list", params);
+  // ✅ construir headers en una variable tipada evita el union raro en TS
+  const headers: HeaderMap = jsonHeaders(authHeaders(token));
+
+  const res = await fetch(url, {
+    cache: "no-store",
+    headers,
+  });
   await ensureOk(res);
-  return (await res.json()) as T;
+  return (await res.json()) as Paginated<BackendPedido>;
 }
 
-// =====================
-// Endpoints concretos
-// =====================
-export async function getPedidos(params: {
-  limit?: number;
-  offset?: number;
-  q?: string;
-  estado?: string;
-  modulo?: string;
-  sort?: "updated_at_desc" | "updated_at_asc" | "created_at_desc" | "created_at_asc" | "total_desc" | "total_asc";
-  token?: string; // opcional por si tu backend requiere auth
-}): Promise<PedidosListResp> {
-  const qp = new URLSearchParams();
-  if (params.limit != null) qp.set("limit", String(params.limit));
-  if (params.offset != null) qp.set("offset", String(params.offset));
-  if (params.q) qp.set("q", params.q);
-  if (params.estado) qp.set("estado", params.estado);
-  if (params.modulo) qp.set("modulo", params.modulo);
-  qp.set("sort", params.sort ?? "updated_at_desc");
+/* =========================================================
+ * (Opcional) Detalle y opciones — útiles para futuras pantallas
+ * Descomentá si los necesitás en el front.
+ * ========================================================= */
 
-  const path = `/ui/pedidos/list?${qp.toString()}`;
-  return await api<PedidosListResp>(path, params.token);
-}
+// export type BackendPedidoDetalle = Record<string, any>;
+
+// export async function getPedidoDetalle(pedidoId: number, token?: string) {
+//   const url = buildUrl(`/ui/pedidos/${pedidoId}`);
+//   const headers: HeaderMap = jsonHeaders(authHeaders(token));
+//   const res = await fetch(url, { cache: "no-store", headers });
+//   await ensureOk(res);
+//   return (await res.json()) as BackendPedidoDetalle;
+// }
+
+// export async function getPedidosOptions(token?: string) {
+//   const url = buildUrl("/ui/pedidos/options");
+//   const headers: HeaderMap = jsonHeaders(authHeaders(token));
+//   const res = await fetch(url, { cache: "no-store", headers });
+//   await ensureOk(res);
+//   return await res.json() as {
+//     estados: string[];
+//     secretarias: { id: number; nombre: string }[];
+//     ambitos: string[];
+//   };
+// }
