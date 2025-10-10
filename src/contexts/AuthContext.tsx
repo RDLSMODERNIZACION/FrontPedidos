@@ -2,48 +2,72 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { saveAuth, loadAuth, clearAuth } from '@/lib/auth';
+import {
+  saveAuth,
+  loadAuth,
+  clearAuth,
+  type AuthState as StoreAuthState,
+} from '@/lib/auth';
 
-type AuthUser = {
-  username: string;
-  secretaria?: string | null;
-  secretaria_id?: number | null;
-};
-
-type AuthState = {
+/**
+ * La respuesta de login del backend puede traer secretaria en null o ausente.
+ * La normalizamos a string "" para cumplir con StoreAuthState (lib/auth).
+ */
+type LoginResponse = {
   token: string;
-  user: AuthUser;
+  user: {
+    username: string;
+    secretaria?: string | null;
+    secretaria_id?: number | null;
+  };
 };
 
 type Ctx = {
-  auth: AuthState | null;
-  signin: (p: { username: string; password: string }) => Promise<void>;
+  auth: StoreAuthState | null;
+  signin: (username: string, password: string) => Promise<void>;
   signout: () => void;
 };
 
-const AuthCtx = createContext<Ctx | undefined>(undefined);
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
+const AuthCtx = createContext<Ctx | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [auth, setAuth] = useState<AuthState | null>(null);
+  const [auth, setAuth] = useState<StoreAuthState | null>(null);
 
-  useEffect(() => { setAuth(loadAuth()); }, []);
+  // Cargar sesión almacenada
+  useEffect(() => {
+    const s = loadAuth();
+    if (s) setAuth(s);
+  }, []);
 
-  async function signin({ username, password }: { username: string; password: string }) {
-    const res = await fetch(`${API_BASE}/auth/login`, {
+  async function signin(username: string, password: string) {
+    // TODO: reemplazar por tu endpoint real de login
+    // Debe devolver al menos: { token, user: { username, secretaria?, secretaria_id? } }
+    const res = await fetch('/api/auth', {
       method: 'POST',
-      headers: { 'Content-Type':'application/json; charset=utf-8' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
     });
+
     if (!res.ok) {
-      const t = await res.text().catch(()=>'');
-      throw new Error(`Login HTTP ${res.status} ${t}`);
+      let msg = 'Credenciales inválidas';
+      try { msg = (await res.json()).detail ?? msg; } catch {}
+      throw new Error(msg);
     }
-    const data = await res.json() as AuthState;
-    // data.user.secretaria y secretaria_id vienen del backend
-    saveAuth(data);
-    setAuth(data);
+
+    const data = (await res.json()) as LoginResponse;
+
+    // 🔧 Normalizamos a la forma estricta del store (lib/auth)
+    const normalized: StoreAuthState = {
+      token: data.token,
+      user: {
+        username: data.user.username,
+        secretaria: data.user.secretaria ?? '',              // <- string requerido
+        secretaria_id: data.user.secretaria_id ?? undefined, // opcional
+      },
+    };
+
+    saveAuth(normalized);
+    setAuth(normalized);
   }
 
   function signout() {
@@ -51,7 +75,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuth(null);
   }
 
-  return <AuthCtx.Provider value={{ auth, signin, signout }}>{children}</AuthCtx.Provider>;
+  return (
+    <AuthCtx.Provider value={{ auth, signin, signout }}>
+      {children}
+    </AuthCtx.Provider>
+  );
 }
 
 export function useAuth() {
