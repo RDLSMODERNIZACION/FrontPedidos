@@ -1,48 +1,64 @@
+// src/components/Filters.tsx
 'use client';
-import { SECRETARIAS } from "@/lib/data";
 
-export function Filters({ onChange }: { onChange: (f: { secretaria: string; estado: string; q: string; }) => void }) {
+type Props = {
+  q: string;
+  estado: string;
+  secretaria: string;
+  onChange: (next: { q?: string; estado?: string; secretaria?: string }) => void;
+};
+
+// Catálogo local (o podés traerlo del backend cuando tengas /ui/pedidos/options)
+const SECRETARIAS = [
+  "SECRETARÍA DE ECONOMIA HACIENDA Y FINANZAS PUBLICAS",
+  "SECRETARÍA DE GESTIÓN AMBIENTAL Y DESARROLLO URBANO",
+  "SECRETARÍA DE DESARROLLO HUMANO",
+  "SECRETARÍA DE OBRAS Y SERVICIOS PÚBLICOS",
+];
+
+export default function Filters({ q, estado, secretaria, onChange }: Props) {
   return (
-    <section className="card">
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="grid gap-1 text-[#9aa3b2]">
-          <span>Secretaría</span>
-          <select className="bg-panel2 border border-[#27314a] rounded-xl px-3 py-2 min-w-[220px]"
-            onChange={e => onChange({ secretaria: e.target.value, estado: "", q: "" })}>
-            <option value="">Todas</option>
-            {SECRETARIAS.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </label>
+    <div className="flex flex-wrap items-end gap-3">
+      <label className="grid gap-1 text-[#9aa3b2]">
+        <span>Secretaría</span>
+        <select
+          className="bg-panel2 border border-[#27314a] rounded-xl px-3 py-2 min-w-[220px]"
+          value={secretaria}
+          onChange={(e) => onChange({ secretaria: e.target.value })}
+        >
+          <option value="">Todas</option>
+          {SECRETARIAS.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+      </label>
 
-        <label className="grid gap-1 text-[#9aa3b2]">
-          <span>Estado</span>
-          <select id="estado" className="bg-panel2 border border-[#27314a] rounded-xl px-3 py-2 min-w-[180px]"
-            onChange={e => onChange({ secretaria: (document.querySelector('select') as HTMLSelectElement).value, estado: e.target.value, q: (document.getElementById('q') as HTMLInputElement)?.value || '' })}>
-            <option value="">Todos</option>
-            <option value="borrador">Borrador</option>
-            <option value="enviado">Enviado</option>
-            <option value="en_revision">En revisión</option>
-            <option value="aprobado">Aprobado</option>
-            <option value="rechazado">Rechazado</option>
-            <option value="reenviado">Reenviado</option>
-            <option value="cerrado">Cerrado</option>
-          </select>
-        </label>
+      <label className="grid gap-1 text-[#9aa3b2]">
+        <span>Estado</span>
+        <select
+          className="bg-panel2 border border-[#27314a] rounded-xl px-3 py-2 min-w-[180px]"
+          value={estado}
+          onChange={(e) => onChange({ estado: e.target.value })}
+        >
+          <option value="">Todos</option>
+          <option value="borrador">borrador</option>
+          <option value="enviado">enviado</option>
+          <option value="en_revision">en_revision</option>
+          <option value="aprobado">aprobado</option>
+          <option value="rechazado">rechazado</option>
+          <option value="cerrado">cerrado</option>
+        </select>
+      </label>
 
-        <label className="grid gap-1 text-[#9aa3b2] flex-1">
-          <span>Buscar</span>
-          <input id="q" className="w-full bg-panel2 border border-[#27314a] rounded-xl px-3 py-2" placeholder="ID trámite, solicitante, módulo..." onInput={e => onChange({ secretaria: (document.querySelector('select') as HTMLSelectElement).value, estado: (document.getElementById('estado') as HTMLSelectElement)?.value || '', q: (e.target as HTMLInputElement).value })} />
-        </label>
-
-        <div className="ml-auto flex gap-2">
-          <button className="btn-ghost" onClick={() => {
-            (document.querySelector('select') as HTMLSelectElement).value = "";
-            (document.getElementById('estado') as HTMLSelectElement).value = "";
-            (document.getElementById('q') as HTMLInputElement).value = "";
-            onChange({ secretaria: "", estado: "", q: "" });
-          }}>Limpiar</button>
-        </div>
-      </div>
-    </section>
+      <label className="grid gap-1 text-[#9aa3b2]">
+        <span>Buscar</span>
+        <input
+          className="bg-panel2 border border-[#27314a] rounded-xl px-3 py-2 min-w-[260px]"
+          placeholder="texto libre…"
+          value={q}
+          onChange={(e) => onChange({ q: e.target.value })}
+        />
+      </label>
+    </div>
   );
 }

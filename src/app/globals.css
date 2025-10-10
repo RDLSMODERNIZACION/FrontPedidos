@@ -24,18 +24,22 @@ body {
 .dot.ok { background: #22c55e }
 .dot.warn { background: #f59e0b }
 .dot.bad { background: #ef4444 }
+
 .table { @apply w-full text-left }
 .table th, .table td { @apply border-b border-[#1b2132] py-3 px-3 }
 .table thead th { @apply bg-panel sticky top-0 z-10 text-sm text-[#cfd6e6] }
 .table tbody tr:hover { background: #121b2b }
+
 .icon-btn { @apply border border-[#2c3450] rounded-xl px-3 py-2 }
 .muted { @apply text-[#9aa3b2] }
 .kpi { @apply grid gap-1 }
 .kpi-label { @apply text-[#9aa3b2] }
 .kpi-value { @apply text-2xl font-bold }
-.drawer { @apply fixed inset-0 grid grid-cols-1 }
+
+/* Drawer (soluciona superposición con thead sticky) */
+.drawer { @apply fixed inset-0 z-50 grid grid-cols-1 }
 .drawer.hidden { display: none }
-.drawer-body { @apply relative z-10 ml-auto w-full md:w-[640px] h-full bg-panel2 border-l border-[#1b2132] flex flex-col }
+.drawer-body { @apply relative z-50 ml-auto w-full md:w-[640px] h-full bg-panel2 border-l border-[#1b2132] flex flex-col }
 .drawer-header { @apply flex items-center justify-between p-4 border-b border-[#1b2132] }
 .drawer-content { @apply p-4 overflow-auto grid gap-3 }
-.backdrop { @apply absolute inset-0 bg-black/50 backdrop-blur-sm }
+.backdrop { @apply absolute inset-0 z-40 bg-black/50 backdrop-blur-sm }
