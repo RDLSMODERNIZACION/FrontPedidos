@@ -10,6 +10,15 @@ type Props = {
   onUploaded?: () => void;        // refrescar el detalle externo si querés
 };
 
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes < 0) return "—";
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  if (kb < 1024) return `${Math.round(kb)} KB`;
+  const mb = kb / 1024;
+  return `${mb.toFixed(mb < 10 ? 1 : 0)} MB`;
+}
+
 export default function ArchivoFormalUploader({ pedidoId, estado, onUploaded }: Props) {
   const [archivos, setArchivos] = useState<PedidoArchivo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,13 +100,24 @@ export default function ArchivoFormalUploader({ pedidoId, estado, onUploaded }: 
                 <div className="flex items-center gap-2">
                   <FileText size={16} />
                   <div className="text-sm">
-                    <a className="link" href={fileUrl(a.url)} target="_blank" rel="noreferrer">
-                      {a.filename || "formal.pdf"}
-                    </a>
-                    <span className="text-[#9aa3b2] ml-2 text-xs">({Math.round(a.size_bytes/1024)} KB)</span>
+                    {a.url ? (
+                      <a className="link" href={fileUrl(a.url)} target="_blank" rel="noreferrer">
+                        {a.filename || "formal.pdf"}
+                      </a>
+                    ) : (
+                      <span>{a.filename || "formal.pdf"}</span>
+                    )}
+                    {/* size_bytes puede ser null → render condicional */}
+                    {a.size_bytes != null && (
+                      <span className="text-[#9aa3b2] ml-2 text-xs">
+                        ({formatBytes(a.size_bytes)})
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div className="text-xs text-[#9aa3b2]">{new Date(a.uploaded_at).toLocaleString()}</div>
+                <div className="text-xs text-[#9aa3b2]">
+                  {a.uploaded_at ? new Date(a.uploaded_at).toLocaleString() : "—"}
+                </div>
               </li>
             ))}
           </ul>
