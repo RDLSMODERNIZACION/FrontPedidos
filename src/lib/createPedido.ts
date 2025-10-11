@@ -29,7 +29,7 @@ const genIdTramite = () => {
  * caso contrario usa las rutas mock locales /api/pedidos de Next.js)
  */
 export async function createPedido(input: CreatePedidoInput) {
-  // ✅ No asumimos que CreatePedidoInput tenga id_tramite
+  // `id_tramite` es opcional: si no viene, lo generamos.
   const maybe = (input as Partial<{ id_tramite?: string }>).id_tramite;
   const id_tramite =
     typeof maybe === "string" && maybe.trim().length > 0 ? maybe.trim() : genIdTramite();
@@ -38,23 +38,10 @@ export async function createPedido(input: CreatePedidoInput) {
   let payload: Record<string, any> = {};
 
   switch (input.modulo) {
-    case "general": {
-      total = Math.round(Number((input as any).presupuesto_estimado) || 0);
-      payload = {
-        fecha_pedido: (input as any).fecha_pedido,
-        fecha_desde: (input as any).fecha_desde,
-        fecha_hasta: (input as any).fecha_hasta,
-        presupuesto_estimado: Number((input as any).presupuesto_estimado) || 0,
-        observaciones: (input as any).observaciones || "",
-      };
-      break;
-    }
-
     case "servicios": {
       // Nueva UI: radios "mantenimiento" | "profesionales" (sin montos)
       total = 0;
       const tipo = (input as any).tipo_servicio as "mantenimiento" | "profesionales";
-
       if (tipo === "mantenimiento") {
         payload = {
           tipo_servicio: "mantenimiento",
@@ -75,7 +62,6 @@ export async function createPedido(input: CreatePedidoInput) {
       // Nueva UI: categorías "edificio" | "maquinaria" | "otros" (sin montos)
       total = 0;
       const cat = (input as any).categoria as "edificio" | "maquinaria" | "otros";
-
       if (cat === "edificio") {
         payload = {
           categoria: "edificio",
@@ -113,25 +99,9 @@ export async function createPedido(input: CreatePedidoInput) {
       break;
     }
 
-    case "serviciosextension": {
-      const horas = Number((input as any).horas);
-      const tarifa = Number((input as any).tarifa_hora);
-      total = Math.round(horas * tarifa);
-      payload = {
-        proveedor: (input as any).proveedor,
-        descripcion: (input as any).descripcion,
-        horas,
-        tarifa_hora: tarifa,
-        fecha_desde: (input as any).fecha_desde || null,
-        fecha_hasta: (input as any).fecha_hasta || null,
-      };
-      break;
-    }
-
     case "reparacion": {
       // Esta UI no tiene montos → total = 0
       total = 0;
-
       if ((input as any).tipo_reparacion === "maquinaria") {
         payload = {
           tipo_reparacion: "maquinaria",
@@ -147,38 +117,11 @@ export async function createPedido(input: CreatePedidoInput) {
       }
       break;
     }
-
-    case "obras": {
-      const contrato = Number((input as any).monto_contrato) || 0;
-      total = Math.round(contrato);
-      payload = {
-        proveedor: (input as any).proveedor,
-        obra_nombre: (input as any).obra_nombre,
-        fecha_inicio: (input as any).fecha_inicio,
-        fecha_fin: (input as any).fecha_fin,
-        monto_contrato: contrato,
-        anticipo_pct: (input as any).anticipo_pct ?? null,
-      };
-      break;
-    }
-
-    case "mantenimientodeescuelas": {
-      const costo = Number((input as any).costo_estimado) || 0;
-      total = Math.round(costo);
-      payload = {
-        escuela: (input as any).escuela,
-        proveedor: (input as any).proveedor,
-        descripcion: (input as any).descripcion,
-        fecha: (input as any).fecha,
-        costo_estimado: costo,
-      };
-      break;
-    }
   }
 
   // Si querés conservar metadatos front (p.ej. 'secretaria') en el backend,
   // podés incluirlos dentro del payload:
-  // payload._front = { secretaria: input.secretaria };
+  // payload._front = { secretaria: input.general.secretaria, ... }
 
   const base = process.env.NEXT_PUBLIC_API_BASE;
   const url = base ? `${base}/pedidos` : `/api/pedidos`;
@@ -190,7 +133,6 @@ export async function createPedido(input: CreatePedidoInput) {
     body: JSON.stringify({
       id_tramite,
       modulo: input.modulo,
-      // area_destino: REMOVIDO
       total,
       payload,
     }),
