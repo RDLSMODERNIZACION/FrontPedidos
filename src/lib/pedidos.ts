@@ -5,7 +5,7 @@ import { API_BASE, authHeaders } from "@/lib/api";
 import { loadAuth } from "@/lib/auth";
 
 /* =========================
- * Tipos
+ * Tipos públicos
  * ========================= */
 export type CreatePedidoResponse = {
   ok: true;
@@ -14,103 +14,191 @@ export type CreatePedidoResponse = {
   created_at: string;
 };
 
-export type PedidoArchivo = {
+export type UploadAnexoResponse = {
+  ok: boolean;
+  archivo_id: number;
+  bytes: number;
+  path: string; // supabase://bucket/key
+};
+
+export type UiAnexoItem = {
   id: number;
-  kind: "formal_pdf" | "presupuesto_1" | "presupuesto_2" | "anexo1_obra" | string;
+  kind: "anexo1_obra" | "formal_pdf" | "presupuesto_1" | "presupuesto_2" | string;
   filename: string;
-  content_type: string;
-  size_bytes: number;
-  url: string;        // normalmente viene relativo: "/files/pedidos/<id>/formal.pdf"
-  uploaded_at: string;
+  content_type: string | null;
+  size_bytes: number | null;
+  url?: string | null;        // supabase://...
+  uploaded_at?: string | null;
+  download?: string | null;   // /pedidos/archivos/{id}/download (si backend lo agrega)
+};
+
+export type UiAnexosList = {
+  items: UiAnexoItem[];
+};
+
+export type SignedUrlResponse = {
+  url: string;
+  file_name?: string;
+  content_type?: string;
+  expires_in?: number;
 };
 
 /* =========================
- * Utils
+ * Helpers
  * ========================= */
-// Devuelve URL absoluta al backend para recursos estáticos (/files/…)
-export function fileUrl(path: string) {
-  if (!path) return "#";
-  if (/^https?:\/\//i.test(path)) return path;
-  return `${API_BASE}${path}`;
+const MAX_MB = 100; // tope de 100 MB para adjuntos (ajustable)
+
+function assertPdf(file: File) {
+  if (!file) throw new Error("No se seleccionó archivo.");
+  if (file.size <= 0) throw new Error("El archivo está vacío (0 bytes).");
+  if (file.size > MAX_MB * 1024 * 1024) {
+    throw new Error(`El PDF supera el límite de ${MAX_MB} MB.`);
+  }
+  const isPdfMime = file.type === "application/pdf" || file.type === "";
+  const isPdfName = /\.pdf$/i.test(file.name);
+  if (!isPdfMime && !isPdfName) throw new Error("Solo se acepta PDF (.pdf).");
+}
+
+async function parseOrThrow<T = any>(res: Response, ctx: string): Promise<T> {
+  if (res.ok) return res.json() as Promise<T>;
+  const txt = await res.text().catch(() => "");
+  throw new Error(`${ctx} -> HTTP ${res.status} ${txt}`);
 }
 
 /* =========================
- * Pedidos — crear
+ * Crear pedido
  * ========================= */
-export async function createPedidoFull(payload: any): Promise<CreatePedidoResponse> {
+export async function createPedido(payload: any): Promise<CreatePedidoResponse> {
   const auth = loadAuth();
-  const bodyStr = JSON.stringify(payload);
-  // Evita problemas en PS 5.1 con Unicode y en navegadores antiguos:
-  const bytes = new TextEncoder().encode(bodyStr);
-
   const res = await fetch(`${API_BASE}/pedidos`, {
     method: "POST",
     headers: {
+      "Content-Type": "application/json",
       ...authHeaders(auth?.token),
-      "Content-Type": "application/json; charset=utf-8",
     },
-    body: bytes as any,
+    body: JSON.stringify(payload),
   });
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(`POST /pedidos -> HTTP ${res.status} ${txt}`);
-  }
-  return await res.json() as CreatePedidoResponse;
+  return parseOrThrow<CreatePedidoResponse>(res, "POST /pedidos");
 }
 
-/* =========================
- * Archivos — anexo de OBRA (ya existente)
- * ========================= */
-export async function uploadAnexoObra(pedidoId: number, file: File) {
-  const auth = loadAuth();
-  const fd = new FormData();
-  // el backend espera "file" para anexo1_obra
-  fd.append("file", file, file.name);
+/** 🔁 Alias para compatibilidad con código existente */
+export const createPedidoFull = createPedido;
 
-  const res = await fetch(`${API_BASE}/pedidos/${pedidoId}/archivos/anexo1_obra`, {
+/* =========================
+ * Upload de Anexos (nuevo endpoint + fallback legacy)
+ * ========================= */
+/**
+ * Sube un anexo usando el endpoint NUEVO (Supabase Storage):
+ *   POST /pedidos/{pedidoId}/archivos
+ *   FormData: tipo_doc, archivo
+ * Si el server devuelve 404 (deploy viejo), hace fallback al endpoint legacy:
+ *   POST /pedidos/{pedidoId}/archivos/anexo1_obra
+ *   FormData: file
+ */
+export async function uploadAnexo(
+  pedidoId: number,
+  tipoDoc: "anexo1_obra" | "formal_pdf" | "presupuesto_1" | "presupuesto_2",
+  file: File
+): Promise<UploadAnexoResponse> {
+  assertPdf(file);
+  const auth = loadAuth();
+
+  // Intento 1: endpoint nuevo
+  {
+    const fd = new FormData();
+    fd.append("tipo_doc", tipoDoc);
+    fd.append("archivo", file, file.name);
+
+    const res = await fetch(`${API_BASE}/pedidos/${pedidoId}/archivos`, {
+      method: "POST",
+      headers: { ...authHeaders(auth?.token) }, // NO setear Content-Type manualmente
+      body: fd,
+    });
+
+    if (res.status !== 404) {
+      return parseOrThrow<UploadAnexoResponse>(res, `POST /pedidos/${pedidoId}/archivos`);
+    }
+    // si es 404 y tipoDoc no es anexo1_obra, no hay fallback posible
+    if (tipoDoc !== "anexo1_obra") {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`Endpoint no disponible para ${tipoDoc} (404). ${txt}`);
+    }
+  }
+
+  // Fallback: endpoint legacy (solo anexo1_obra)
+  const fdLegacy = new FormData();
+  fdLegacy.append("file", file, file.name);
+
+  const legacy = await fetch(`${API_BASE}/pedidos/${pedidoId}/archivos/anexo1_obra`, {
     method: "POST",
-    headers: { ...authHeaders(auth?.token) }, // NO seteés Content-Type con FormData
-    body: fd,
+    headers: { ...authHeaders(loadAuth()?.token) },
+    body: fdLegacy,
   });
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(`upload anexo1_obra -> HTTP ${res.status} ${txt}`);
-  }
-  return await res.json() as { ok: boolean; archivo_id: number; storage_path: string };
+  return parseOrThrow<UploadAnexoResponse>(legacy, `POST /pedidos/${pedidoId}/archivos/anexo1_obra`);
+}
+
+/** 🔁 Alias legacy (para código viejo que aún llame a uploadAnexoObra) */
+export async function uploadAnexoObra(pedidoId: number, file: File) {
+  return uploadAnexo(pedidoId, "anexo1_obra", file);
 }
 
 /* =========================
- * Archivos — PDF formal firmado (nuevo)
+ * Upload formal (UI) — compatibilidad
  * ========================= */
-
-// Lista archivos de un pedido desde /ui (alias: kind/filename/size_bytes/url/...)
-export async function listPedidoArchivos(pedidoId: number): Promise<PedidoArchivo[]> {
-  const auth = loadAuth();
-  const r = await fetch(`${API_BASE}/ui/pedidos/${pedidoId}/archivos`, {
-    headers: { ...authHeaders(auth?.token) },
-  });
-  if (!r.ok) {
-    const txt = await r.text().catch(() => "");
-    throw new Error(`GET /ui/pedidos/${pedidoId}/archivos -> HTTP ${r.status} ${txt}`);
-  }
-  return await r.json();
-}
-
-// Sube/Reemplaza el formal con firma (tipo_doc='formal_pdf')
-// Importante: el backend espera el campo "pdf" en el FormData.
-export async function uploadPedidoFormalPdf(pedidoId: number, file: File): Promise<PedidoArchivo> {
+/** Ruta UI existente: POST /ui/pedidos/{pedidoId}/archivo/formal (campo "pdf") */
+export async function uploadFormalPdfUI(
+  pedidoId: number,
+  file: File
+): Promise<{ ok: boolean; archivo_id: number; bytes?: number; path?: string }> {
+  assertPdf(file);
   const auth = loadAuth();
   const fd = new FormData();
   fd.append("pdf", file, file.name);
 
   const r = await fetch(`${API_BASE}/ui/pedidos/${pedidoId}/archivo/formal`, {
     method: "POST",
-    headers: { ...authHeaders(auth?.token) }, // NO pongas Content-Type manualmente
+    headers: { ...authHeaders(auth?.token) }, // NO setear Content-Type manualmente
     body: fd,
   });
-  if (!r.ok) {
-    const txt = await r.text().catch(() => "");
-    throw new Error(`POST /ui/pedidos/${pedidoId}/archivo/formal -> HTTP ${r.status} ${txt}`);
+  return parseOrThrow(r, `POST /ui/pedidos/${pedidoId}/archivo/formal`);
+}
+
+/* =========================
+ * Listado de anexos por pedido (UI)
+ * ========================= */
+export async function listAnexos(pedidoId: number): Promise<UiAnexosList> {
+  const auth = loadAuth();
+  const r = await fetch(`${API_BASE}/ui/pedidos/${pedidoId}/archivos`, {
+    headers: { ...authHeaders(auth?.token) },
+  });
+  return parseOrThrow<UiAnexosList>(r, `GET /ui/pedidos/${pedidoId}/archivos`);
+}
+
+/* =========================
+ * Firmar y descargar
+ * ========================= */
+export async function getSignedUrl(archivoId: number): Promise<SignedUrlResponse> {
+  const auth = loadAuth();
+  const r = await fetch(`${API_BASE}/pedidos/archivos/${archivoId}/signed`, {
+    headers: { ...authHeaders(auth?.token) },
+  });
+  return parseOrThrow<SignedUrlResponse>(r, `GET /pedidos/archivos/${archivoId}/signed`);
+}
+
+/** URL al redirect de descarga (307). Ideal para <a href={downloadUrl(id)} target="_blank"> */
+export function downloadUrl(archivoId: number) {
+  return `${API_BASE}/pedidos/archivos/${archivoId}/download`;
+}
+
+/* =========================
+ * Helper de URL absoluta si el listado devuelve 'download' relativo
+ * ========================= */
+export function absoluteUrl(path: string) {
+  if (!path) return "";
+  try {
+    // Si ya es absoluta, la devuelve igual
+    return new URL(path, API_BASE).toString();
+  } catch {
+    return `${API_BASE}${path.startsWith("/") ? "" : "/"}${path}`;
   }
-  return await r.json();
 }

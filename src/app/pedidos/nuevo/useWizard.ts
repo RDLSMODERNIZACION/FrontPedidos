@@ -1,6 +1,7 @@
 // src/app/pedidos/nuevo/useWizard.ts
 'use client';
-import { useEffect, useMemo, useState } from "react";
+
+import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,12 +15,14 @@ import {
   adquisicionSchema,
   reparacionSchema,
 } from "@/lib/schemas";
-import { createPedidoFull, uploadAnexoObra } from "@/lib/pedidos";
-
+import { createPedidoFull, uploadAnexo } from "@/lib/pedidos";
 import type { Ambito, ModNormal, ModStage, Step } from "./constants";
 import { PREVIEW_MODE, DELAY_MS } from "./constants";
-import { genIdTramite } from "./builders";
 
+/**
+ * Hook principal del wizard de "Nuevo Pedido".
+ * Expone los forms, estado de pasos y acciones.
+ */
 export function useWizard() {
   const { auth } = useAuth();
 
@@ -40,6 +43,7 @@ export function useWizard() {
     mode: "onChange",
   });
 
+  // Inyectar secretaría desde la sesión
   useEffect(() => {
     if (auth?.user?.secretaria) {
       generalForm.setValue("secretaria", auth.user.secretaria, { shouldValidate: true });
@@ -56,13 +60,14 @@ export function useWizard() {
   const [ambitoSelected, setAmbitoSelected] = useState<Ambito | null>(null);
   const [ambitoIncluido, setAmbitoIncluido] = useState<Ambito | null>(null);
 
+  // ⚠️ Los formularios de "Ambientes" NO deben mergear baseSchema
   const obrasForm = useForm({
-    resolver: zodResolver(obrasSchema.merge(baseSchema)),
+    resolver: zodResolver(obrasSchema),
     defaultValues: { modulo: "obras" } as any,
     mode: "onChange",
   });
-  const escForm   = useForm({
-    resolver: zodResolver(mantenimientodeescuelasSchema.merge(baseSchema)),
+  const escForm = useForm({
+    resolver: zodResolver(mantenimientodeescuelasSchema),
     defaultValues: { modulo: "mantenimientodeescuelas" } as any,
     mode: "onChange",
   });
@@ -72,75 +77,214 @@ export function useWizard() {
   const [modStage, setModStage] = useState<ModStage>("intro");
   const [subchoice, setSubchoice] = useState<string | null>(null);
 
-  const serviciosForm   = useForm({ resolver: zodResolver(serviciosSchema.merge(baseSchema)),   defaultValues: { modulo: "servicios" } as any, mode: "onChange" });
-  const alquilerForm    = useForm({ resolver: zodResolver(alquilerSchema.merge(baseSchema)),    defaultValues: { modulo: "alquiler" } as any, mode: "onChange" });
-  const adquisicionForm = useForm({ resolver: zodResolver(adquisicionSchema.merge(baseSchema)), defaultValues: { modulo: "adquisicion", modo_adquisicion: "uno" } as any, mode: "onChange" });
-  const repForm         = useForm({ resolver: zodResolver(reparacionSchema.merge(baseSchema)),  defaultValues: { modulo: "reparacion" } as any, mode: "onChange" });
+  // Los módulos sí pueden mergear baseSchema
+  const serviciosForm = useForm({
+    resolver: zodResolver(serviciosSchema.merge(baseSchema)),
+    defaultValues: { modulo: "servicios" } as any,
+    mode: "onChange",
+  });
+  const alquilerForm = useForm({
+    resolver: zodResolver(alquilerSchema.merge(baseSchema)),
+    defaultValues: { modulo: "alquiler" } as any,
+    mode: "onChange",
+  });
+  const adquisicionForm = useForm({
+    resolver: zodResolver(adquisicionSchema.merge(baseSchema)),
+    defaultValues: { modulo: "adquisicion", modo_adquisicion: "uno" } as any,
+    mode: "onChange",
+  });
+  const repForm = useForm({
+    resolver: zodResolver(reparacionSchema.merge(baseSchema)),
+    defaultValues: {
+      modulo: "reparacion",
+      tipo_reparacion: "maquinaria",
+      // ⬇️ Arranca SIEMPRE con una única fila (evita duplicados en StrictMode)
+      items: [{ unidad_nro: undefined, detalle: "" }],
+    } as any,
+    mode: "onChange",
+  });
 
+  // ===== Helpers UI =====
   function handleSelectAmbito(a: Ambito) {
     setAmbitoSelected(a);
     if (a === "ninguno") includeAmbito("ninguno");
   }
-  function includeAmbito(a: Ambito) { setAmbitoIncluido(a); }
-  function clearAmbito() { setAmbitoIncluido(null); }
+  function includeAmbito(a: Ambito) {
+    setAmbitoIncluido(a);
+  }
+  function clearAmbito() {
+    setAmbitoIncluido(null);
+  }
 
-  function openModule(m: ModNormal) { setModuloActivo(m); setModStage("intro"); setSubchoice(null); }
-  function advanceFromIntro() { if (moduloActivo) setModStage("choose"); }
+  function openModule(m: ModNormal) {
+    setModuloActivo(m);
+    setModStage("intro");
+    setSubchoice(null);
+  }
+  function advanceFromIntro() {
+    if (moduloActivo) setModStage("choose");
+  }
   function advanceFromChoose() {
     if (!moduloActivo) return;
-    if (moduloActivo === "servicios"   && subchoice) serviciosForm.setValue("tipo_servicio",    subchoice as any, { shouldValidate: true });
-    if (moduloActivo === "alquiler"    && subchoice) alquilerForm.setValue("categoria",         subchoice as any, { shouldValidate: true });
-    if (moduloActivo === "reparacion"  && subchoice) repForm.setValue("tipo_reparacion",        subchoice as any, { shouldValidate: true });
-    if (moduloActivo === "adquisicion" && subchoice) adquisicionForm.setValue("modo_adquisicion", subchoice as any, { shouldValidate: true });
+    if (moduloActivo === "servicios" && subchoice)
+      serviciosForm.setValue("tipo_servicio", subchoice as any, {
+        shouldValidate: true,
+      });
+    if (moduloActivo === "alquiler" && subchoice)
+      alquilerForm.setValue("categoria", subchoice as any, {
+        shouldValidate: true,
+      });
+    if (moduloActivo === "reparacion" && subchoice)
+      repForm.setValue("tipo_reparacion", subchoice as any, {
+        shouldValidate: true,
+      });
+    if (moduloActivo === "adquisicion" && subchoice)
+      adquisicionForm.setValue("modo_adquisicion", subchoice as any, {
+        shouldValidate: true,
+      });
     setModStage("form");
+  }
+
+  function genIdTramite(): string {
+    const y = new Date().getFullYear();
+    const r = Math.floor(Math.random() * 10000)
+      .toString()
+      .padStart(4, "0");
+    return `EXP-${y}-${r}`;
   }
 
   function buildModuleDraft(mod: ModNormal) {
     const secretaria = auth?.user?.secretaria ?? "";
     const id_tramite = genIdTramite();
+
     if (mod === "servicios") {
       const v = serviciosForm.getValues() as any;
-      return { id_tramite, modulo: "servicios", secretaria,
-        payload: v.tipo_servicio === "mantenimiento"
-          ? { tipo_servicio: "mantenimiento", detalle_mantenimiento: v.detalle_mantenimiento || "" }
-          : { tipo_servicio: "profesionales", tipo_profesional: v.tipo_profesional || "", dia_desde: v.dia_desde || "", dia_hasta: v.dia_hasta || "" } };
+      return v.tipo_servicio === "otros"
+        ? {
+            id_tramite,
+            modulo: "servicios",
+            secretaria,
+            payload: {
+              tipo_servicio: "otros",
+              servicio_requerido: v.servicio_requerido || "",
+              destino_servicio: v.destino_servicio || "",
+            },
+          }
+        : {
+            id_tramite,
+            modulo: "servicios",
+            secretaria,
+            payload: {
+              tipo_servicio: "profesionales",
+              tipo_profesional: v.tipo_profesional || "",
+              dia_desde: v.dia_desde || "",
+              dia_hasta: v.dia_hasta || "",
+            },
+          };
     }
+
     if (mod === "alquiler") {
       const v = alquilerForm.getValues() as any;
       if (v.categoria === "maquinaria") {
-        return { id_tramite, modulo: "alquiler", secretaria,
-          payload: { categoria: "maquinaria", uso_maquinaria: v.uso_maquinaria || "", tipo_maquinaria: v.tipo_maquinaria || "",
-            requiere_combustible: !!v.requiere_combustible, requiere_chofer: !!v.requiere_chofer,
-            cronograma_desde: v.cronograma_desde || "", cronograma_hasta: v.cronograma_hasta || "", horas_por_dia: Number(v.horas_por_dia || 0) } };
+        return {
+          id_tramite,
+          modulo: "alquiler",
+          secretaria,
+          payload: {
+            categoria: "maquinaria",
+            uso_maquinaria: v.uso_maquinaria || "",
+            tipo_maquinaria: v.tipo_maquinaria || "",
+            requiere_combustible: !!v.requiere_combustible,
+            requiere_chofer: !!v.requiere_chofer,
+            cronograma_desde: v.cronograma_desde || "",
+            cronograma_hasta: v.cronograma_hasta || "",
+            horas_por_dia: Number(v.horas_por_dia || 0),
+          },
+        };
       }
       if (v.categoria === "edificio") {
-        return { id_tramite, modulo: "alquiler", secretaria,
-          payload: { categoria: "edificio", uso_edificio: v.uso_edificio || "", ubicacion_edificio: v.ubicacion_edificio || "" } };
+        return {
+          id_tramite,
+          modulo: "alquiler",
+          secretaria,
+          payload: {
+            categoria: "edificio",
+            uso_edificio: v.uso_edificio || "",
+            ubicacion_edificio: v.ubicacion_edificio || "",
+          },
+        };
       }
-      return { id_tramite, modulo: "alquiler", secretaria,
-        payload: { categoria: "otros", que_alquilar: v.que_alquilar || "", detalle_uso: v.detalle_uso || "" } };
+      return {
+        id_tramite,
+        modulo: "alquiler",
+        secretaria,
+        payload: {
+          categoria: "otros",
+          que_alquilar: v.que_alquilar || "",
+          detalle_uso: v.detalle_uso || "",
+        },
+      };
     }
+
     if (mod === "adquisicion") {
       const v = adquisicionForm.getValues() as any;
-      return { id_tramite, modulo: "adquisicion", secretaria,
-        payload: { proposito: v.proposito || "", modo_adquisicion: v.modo_adquisicion || "uno", items: v.items || [] } };
+      return {
+        id_tramite,
+        modulo: "adquisicion",
+        secretaria,
+        payload: {
+          proposito: v.proposito || "",
+          modo_adquisicion: v.modo_adquisicion || "uno",
+          items: v.items || [],
+        },
+      };
     }
+
+    // === Reparación (soporta 'items' para maquinarias) ===
     const v = repForm.getValues() as any;
     if (v.tipo_reparacion === "maquinaria") {
-      return { id_tramite, modulo: "reparacion", secretaria,
-        payload: { tipo_reparacion: "maquinaria", unidad_reparar: v.unidad_reparar || "", detalle_reparacion: v.detalle_reparacion || "" } };
+      const items = Array.isArray(v.items) ? v.items : [];
+      const picks = items
+        .map((it: any) =>
+          it?.unidad_nro != null ? `UNIDAD ${it.unidad_nro}` : null
+        )
+        .filter(Boolean);
+      const dets = items
+        .map((it: any) => (it?.detalle ? String(it.detalle).trim() : ""))
+        .filter((s: string) => s.length > 0);
+
+      return {
+        id_tramite,
+        modulo: "reparacion",
+        secretaria,
+        payload: {
+          tipo_reparacion: "maquinaria",
+          unidad_reparar: picks.join(", "),
+          detalle_reparacion: dets.join(" | "),
+          items,
+        },
+      };
     }
-    return { id_tramite, modulo: "reparacion", secretaria,
-      payload: { tipo_reparacion: "otros", que_reparar: v.que_reparar || "", detalle_reparacion: v.detalle_reparacion || "" } };
+    // 'otros'
+    return {
+      id_tramite,
+      modulo: "reparacion",
+      secretaria,
+      payload: {
+        tipo_reparacion: "otros",
+        que_reparar: v.que_reparar || "",
+        detalle_reparacion: v.detalle_reparacion || "",
+      },
+    };
   }
 
   function buildFullPayload(): any {
     const g = generalForm.getValues();
 
+    // ÁMBITO
     const tipoUi: "ninguno" | "obra" | "mantenimientodeescuelas" =
       ambitoIncluido ?? "ninguno";
 
-    // Ámbito
     let ambito: any = { tipo: tipoUi };
     if (tipoUi === "mantenimientodeescuelas") {
       const v = escForm.getValues() as any;
@@ -150,18 +294,24 @@ export function useWizard() {
       ambito.obra = { obra_nombre: v.obra_nombre };
     }
 
-    // Módulo
+    // MÓDULO
     let modulo: any = null;
     if (moduloActivo === "servicios") {
       const v = serviciosForm.getValues() as any;
-      modulo = {
-        tipo: "servicios",
-        tipo_servicio: v.tipo_servicio,
-        detalle_mantenimiento: v.detalle_mantenimiento || null,
-        tipo_profesional: v.tipo_profesional || null,
-        dia_desde: v.dia_desde || null,
-        dia_hasta: v.dia_hasta || null,
-      };
+      modulo = v.tipo_servicio === "otros"
+        ? {
+            tipo: "servicios",
+            tipo_servicio: "otros",
+            servicio_requerido: v.servicio_requerido || null,
+            destino_servicio: v.destino_servicio || null,
+          }
+        : {
+            tipo: "servicios",
+            tipo_servicio: "profesionales",
+            tipo_profesional: v.tipo_profesional || null,
+            dia_desde: v.dia_desde || null,
+            dia_hasta: v.dia_hasta || null,
+          };
     } else if (moduloActivo === "alquiler") {
       const v = alquilerForm.getValues() as any;
       modulo = {
@@ -194,12 +344,31 @@ export function useWizard() {
       };
     } else if (moduloActivo === "reparacion") {
       const v = repForm.getValues() as any;
+
+      // Compat: si hay items de 'maquinaria', concateno
+      let unidad_reparar = v.unidad_reparar || null;
+      let detalle = v.detalle_reparacion || null;
+
+      if (v.tipo_reparacion === "maquinaria" && Array.isArray(v.items)) {
+        const picks = v.items
+          .map((it: any) =>
+            it?.unidad_nro != null ? `UNIDAD ${it.unidad_nro}` : null
+          )
+          .filter(Boolean);
+        const dets = v.items
+          .map((it: any) => (it?.detalle ? String(it.detalle).trim() : ""))
+          .filter((s: string) => s.length > 0);
+
+        if (picks.length) unidad_reparar = picks.join(", ");
+        if (dets.length) detalle = dets.join(" | ");
+      }
+
       modulo = {
         tipo: "reparacion",
         tipo_reparacion: v.tipo_reparacion,
-        unidad_reparar: v.unidad_reparar || null,
+        unidad_reparar: unidad_reparar,
         que_reparar: v.que_reparar || null,
-        detalle_reparacion: v.detalle_reparacion || null,
+        detalle_reparacion: detalle,
       };
     }
 
@@ -218,7 +387,7 @@ export function useWizard() {
     return { generales, ambito, modulo };
   }
 
-  // ====== State del envío/resumen/final ======
+  // ===== Resumen / Envío =====
   const [summary, setSummary] = useState<any | null>(null);
   const [showJson, setShowJson] = useState(false);
 
@@ -241,7 +410,7 @@ export function useWizard() {
         clearInterval(id);
         setSending(false);
         setProgress(100);
-        setStep(5); // pasar a Finalizar al completar los 10s
+        setStep(5); // Finalizar
       }
     }, 120);
     return () => clearInterval(id);
@@ -259,7 +428,10 @@ export function useWizard() {
     if (!okGen && !PREVIEW_MODE) return;
 
     const s = {
-      generales: { ...generalForm.getValues(), secretaria: auth?.user?.secretaria ?? generalForm.getValues("secretaria") },
+      generales: {
+        ...generalForm.getValues(),
+        secretaria: auth?.user?.secretaria ?? generalForm.getValues("secretaria"),
+      },
       especiales: {
         ...(ambitoIncluido === "obra" ? { obra: obrasForm.getValues() } : {}),
         ...(ambitoIncluido === "mantenimientodeescuelas" ? { mantenimientodeescuelas: escForm.getValues() } : {}),
@@ -294,16 +466,19 @@ export function useWizard() {
     setCreatedResult(null);
     setSending(true);
 
-    // Disparamos el backend en paralelo (no bloquea los 10s)
     (async () => {
       try {
         const created = await createPedidoFull(payload);
 
+        // Si el ámbito es "obra" y subieron el PDF, subirlo (nuevo endpoint + fallback en lib)
         if (ambitoIncluido === "obra") {
           const fList = (obrasForm.getValues() as any)?.anexo1_pdf as FileList | undefined;
           const file = fList?.[0];
-          if (file) await uploadAnexoObra(created.pedido_id, file);
+          if (file) {
+            await uploadAnexo(created.pedido_id, "anexo1_obra", file);
+          }
         }
+
         setCreatedResult(created);
         setBackendDone(true);
       } catch (e: any) {
@@ -315,10 +490,11 @@ export function useWizard() {
   }
 
   return {
-    // step
+    // stepper
     step, setStep,
-    // forms y auth
+    // auth
     auth,
+    // forms
     generalForm, obrasForm, escForm, serviciosForm, alquilerForm, adquisicionForm, repForm,
     // ambientes
     ambitoSelected, ambitoIncluido, handleSelectAmbito, includeAmbito, clearAmbito,
@@ -327,7 +503,7 @@ export function useWizard() {
     // resumen / envío
     summary, setSummary, showJson, setShowJson,
     sending, setSending, progress, backendDone, sendError, createdResult,
-    // actions
+    // acciones
     guardarModuloYPasarAResumen, handleEnviar,
   };
 }

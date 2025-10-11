@@ -1,100 +1,150 @@
+// src/components/forms/modules/ReparacionForm.tsx
 'use client';
 
-import { useEffect } from "react";
-import { useFormContext, useWatch } from "react-hook-form";
+import React, { useEffect, useMemo, useState } from "react";
+import { useFormContext, useFieldArray } from "react-hook-form";
+import { listUnidades, type Unidad } from "@/lib/catalog";
 
-const UNIDADES = [
-  "Retroexcavadora","Pala cargadora","Camión","Camioneta",
-  "Hormigonera","Generador","Compresor","Autoelevador","Otra",
-];
+type Props = { lockedChoice?: "maquinaria" | "otros" };
 
-type Choice = "maquinaria" | "otros";
+export default function ReparacionForm({ lockedChoice }: Props) {
+  const { register, control, setValue, watch, formState: { errors } } = useFormContext();
+  const tipo = (lockedChoice ?? (watch("tipo_reparacion") as "maquinaria" | "otros" | undefined)) ?? "maquinaria";
 
-export default function ReparacionForm({ lockedChoice }: { lockedChoice?: Choice }) {
-  const { register, control, setValue, formState: { errors } } = useFormContext();
+  // items dinámicos (NO autoinicializar acá; lo hacemos en defaultValues del useForm)
+  const { fields, append, remove } = useFieldArray({ control, name: "items" });
+  const items = watch("items") as Array<{ unidad_nro?: number; detalle?: string }> | undefined;
 
-  // si viene bloqueado, fijarlo; si no, default a "maquinaria"
-  const tipo = useWatch({ control, name: "tipo_reparacion" }) as Choice | undefined;
+  const [unidades, setUnidades] = useState<Unidad[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (lockedChoice) {
-      if (tipo !== lockedChoice) {
-        setValue("tipo_reparacion", lockedChoice, { shouldValidate: true });
+    let alive = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const data = await listUnidades();
+        if (alive) setUnidades(data);
+      } catch (e) {
+        console.error("No se pudieron cargar unidades", e);
+        if (alive) setUnidades([]);
+      } finally {
+        if (alive) setLoading(false);
       }
-    } else if (!tipo) {
-      setValue("tipo_reparacion", "maquinaria", { shouldValidate: true });
-    }
-  }, [lockedChoice, tipo, setValue]);
+    })();
+    return () => { alive = false; };
+  }, []);
 
-  const choice: Choice = (lockedChoice ?? tipo ?? "maquinaria");
+  const labelUnidad = (u: Unidad) => {
+    const parts = [
+      u.unidad_nro != null ? `UNIDAD ${u.unidad_nro}` : null,
+      u.dominio ?? "S/D",
+      u.marca ?? "",
+      u.modelo ?? "",
+    ].filter(Boolean);
+    return parts.join(" — ");
+  };
+
+  const fieldCls = (hasErr: boolean) =>
+    `bg-panel2 border rounded-xl px-3 py-2 ${hasErr ? "border-red-500" : "border-[#27314a]"}`;
 
   return (
     <div className="grid gap-4">
-      <h3 className="text-lg font-semibold text-blue-500">¿Qué tipo de reparación desea solicitar?</h3>
-
-      {/* Radios sólo si NO viene lockeado */}
       {!lockedChoice && (
-        <div className="grid gap-2 text-[#cfd6e6]">
-          <label className="flex items-center gap-2">
-            <input type="radio" value="maquinaria" {...register("tipo_reparacion")} className="accent-blue-500" />
-            <span>Maquinaria</span>
-          </label>
-          <label className="flex items-center gap-2">
-            <input type="radio" value="otros" {...register("tipo_reparacion")} className="accent-blue-500" />
-            <span>Otros</span>
-          </label>
-          {(errors as any)?.tipo_reparacion && (
-            <small className="text-red-400">{String((errors as any).tipo_reparacion.message)}</small>
+        <div className="grid gap-2 text-[#9aa3b2]">
+          <span>Tipo de reparación</span>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2">
+              <input type="radio" value="maquinaria" {...register("tipo_reparacion")} defaultChecked />
+              <span>Maquinaria</span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="radio" value="otros" {...register("tipo_reparacion")} />
+              <span>Otros</span>
+            </label>
+          </div>
+        </div>
+      )}
+
+      {tipo === "maquinaria" ? (
+        <div className="grid gap-3">
+          <div className="text-[#9aa3b2]">Unidades a reparar (podés agregar varias)</div>
+
+          {fields.map((f, idx) => {
+            const errPath = (errors as any)?.items?.[idx];
+            const unidad_nro = (items?.[idx]?.unidad_nro ?? undefined) as number | undefined;
+
+            return (
+              <div key={f.id} className="grid gap-2 p-3 rounded-xl border border-[#27314a]">
+                <label className="grid gap-1 text-[#9aa3b2]">
+                  <span>Unidad</span>
+                  <select
+                    {...register(`items.${idx}.unidad_nro` as const, { valueAsNumber: true })}
+                    className={fieldCls(!!errPath?.unidad_nro)}
+                    value={unidad_nro ?? ""}
+                    onChange={(e) => setValue(`items.${idx}.unidad_nro` as const, e.target.value ? Number(e.target.value) : undefined, { shouldValidate: true })}
+                    title={
+                      unidad_nro != null
+                        ? (unidades.find(u => u.unidad_nro === unidad_nro) ? labelUnidad(unidades.find(u => u.unidad_nro === unidad_nro)!) : "Unidad seleccionada")
+                        : "Seleccionar unidad"
+                    }
+                  >
+                    <option value="">(Sin seleccionar)</option>
+                    {loading ? (
+                      <option value="" disabled>Cargando…</option>
+                    ) : (
+                      unidades.map(u => (
+                        <option key={`${u.unidad_nro}-${u.dominio}-${u.id}`} value={u.unidad_nro ?? ""}>
+                          {u.unidad_nro != null ? `UNIDAD ${u.unidad_nro}` : "S/N"} — {u.dominio ?? "S/D"}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  {errPath?.unidad_nro && <small className="text-red-400">{String(errPath?.unidad_nro?.message)}</small>}
+                </label>
+
+                <label className="grid gap-1 text-[#9aa3b2]">
+                  <span>Detalle de la reparación</span>
+                  <textarea
+                    rows={3}
+                    {...register(`items.${idx}.detalle` as const)}
+                    className={fieldCls(!!errPath?.detalle)}
+                    placeholder="Describí la falla, repuestos, tareas, etc."
+                  />
+                  {errPath?.detalle && <small className="text-red-400">{String(errPath?.detalle?.message)}</small>}
+                </label>
+
+                <div className="flex justify-end">
+                  <button type="button" className="btn-ghost" onClick={() => remove(idx)} disabled={fields.length <= 1}>
+                    Quitar
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
+          <div>
+            <button type="button" className="btn" onClick={() => append({ unidad_nro: undefined, detalle: "" })}>
+              + Agregar otra unidad
+            </button>
+          </div>
+
+          {(errors as any)?.items && (
+            <div className="text-amber-300 text-sm">
+              {String((errors as any)?.items?.message ?? "Completá al menos una unidad o el detalle")}
+            </div>
           )}
         </div>
-      )}
-
-      {/* ===== Maquinaria ===== */}
-      {choice === "maquinaria" && (
-        <div className="grid gap-3 md:grid-cols-2">
+      ) : (
+        <div className="grid gap-3">
           <label className="grid gap-1 text-[#9aa3b2]">
-            <span>Unidad a reparar:</span>
-            <select
-              {...register("unidad_reparar")}
-              className="bg-panel2 border border-[#27314a] rounded-xl px-3 py-2"
-              defaultValue=""
-            >
-              <option value="" disabled>Seleccione una unidad</option>
-              {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
-            </select>
-            {(errors as any)?.unidad_reparar && (
-              <small className="text-red-400">{String((errors as any).unidad_reparar.message)}</small>
-            )}
-          </label>
-
-          <label className="grid gap-1 text-[#9aa3b2]">
-            <span>Detalle de la reparación</span>
-            <textarea
-              rows={3}
-              {...register("detalle_reparacion")}
-              className="bg-panel2 border border-[#27314a] rounded-xl px-3 py-2"
-              placeholder="Describa la reparación necesaria"
-            />
-            {(errors as any)?.detalle_reparacion && (
-              <small className="text-red-400">{String((errors as any).detalle_reparacion.message)}</small>
-            )}
-          </label>
-        </div>
-      )}
-
-      {/* ===== Otros ===== */}
-      {choice === "otros" && (
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="grid gap-1 text-[#9aa3b2]">
-            <span>¿Qué desea reparar?</span>
+            <span>¿Qué reparar?</span>
             <input
               {...register("que_reparar")}
-              className="bg-panel2 border border-[#27314a] rounded-xl px-3 py-2"
-              placeholder="Equipo/elemento a reparar"
+              className={fieldCls(!!(errors as any)?.que_reparar)}
+              placeholder="Equipo o elemento a reparar"
             />
-            {(errors as any)?.que_reparar && (
-              <small className="text-red-400">{String((errors as any).que_reparar.message)}</small>
-            )}
+            {(errors as any)?.que_reparar && <small className="text-red-400">{String((errors as any)?.que_reparar?.message)}</small>}
           </label>
 
           <label className="grid gap-1 text-[#9aa3b2]">
@@ -102,11 +152,10 @@ export default function ReparacionForm({ lockedChoice }: { lockedChoice?: Choice
             <textarea
               rows={3}
               {...register("detalle_reparacion")}
-              className="bg-panel2 border border-[#27314a] rounded-xl px-3 py-2"
+              className={fieldCls(!!(errors as any)?.detalle_reparacion)}
+              placeholder="Describí la reparación"
             />
-            {(errors as any)?.detalle_reparacion && (
-              <small className="text-red-400">{String((errors as any).detalle_reparacion.message)}</small>
-            )}
+            {(errors as any)?.detalle_reparacion && <small className="text-red-400">{String((errors as any)?.detalle_reparacion?.message)}</small>}
           </label>
         </div>
       )}

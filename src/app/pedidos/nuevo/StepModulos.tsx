@@ -57,7 +57,7 @@ export default function StepModulos(props: {
               </h4>
               <p className="text-[#cfd6e6]">
                 {({
-                  servicios: "Cargá servicios: mantenimiento o profesionales.",
+                  servicios: "Cargá servicios: otros o profesionales.",
                   alquiler: "Pedí alquiler: edificio, maquinaria u otros.",
                   adquisicion: "Cargá ítems a comprar.",
                   reparacion: "Solicitud de reparación de equipos/unidades."
@@ -78,7 +78,7 @@ export default function StepModulos(props: {
                 {(
                   {
                     servicios: [
-                      { id: "mantenimiento", title: "Mantenimiento", desc: "Preventivo/Correctivo" },
+                      { id: "otros", title: "Otros", desc: "Servicio puntual / general (con destino)" },
                       { id: "profesionales", title: "Profesionales", desc: "Arquitecto, electricista, etc." },
                     ],
                     alquiler: [

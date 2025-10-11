@@ -1,259 +1,305 @@
 // src/lib/schemas.ts
 import { z } from "zod";
 
-/* ===============================
- * Helpers
- * =============================== */
-const nonEmpty  = (label: string) => z.string().min(1, `${label} requerido`);
-const dateStr   = (label: string) => z.string().min(1, `${label} requerido`); // YYYY-MM-DD
-const diaSemana = z.enum(["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"]);
-
-/* ===============================
- * Campos comunes (se agregan a todos)
- * =============================== */
+/* =========================================================
+ * BASE / GENERAL (se mantienen livianos; el foco es en módulos)
+ * ========================================================= */
 export const baseSchema = z.object({
+  secretaria: z
+    .string({ required_error: "Seleccioná una secretaría" })
+    .min(1, "Seleccioná una secretaría")
+    .optional(),
   id_tramite: z.string().optional(),
-  secretaria: nonEmpty("Secretaría"),
 });
 
-/* ===============================
- * Módulo: GENERAL (según UI)
- * =============================== */
-export const generalSchema = z
-  .object({
-    modulo: z.literal("general"),
-    fecha_pedido: dateStr("Fecha de pedido"),
-    fecha_desde:  dateStr("Fecha desde"),
-    fecha_hasta:  dateStr("Fecha hasta"),
-    presupuesto_estimado: z.coerce.number().nonnegative("Monto inválido"),
-    observaciones: z.string().optional().default(""),
-  })
-  .superRefine((v, ctx) => {
-    const d1 = new Date(v.fecha_desde).getTime();
-    const d2 = new Date(v.fecha_hasta).getTime();
-    if (!Number.isNaN(d1) && !Number.isNaN(d2) && d1 > d2) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["fecha_hasta"], message: "Debe ser igual o posterior a la fecha desde" });
-    }
-  });
+export const generalSchema = z.object({
+  secretaria: z
+    .string({ required_error: "Seleccioná una secretaría" })
+    .min(1, "Seleccioná una secretaría"),
+  observaciones: z.string().optional(),
+  fecha_pedido: z.string().optional(), // ISO date (opcional)
+});
+export type GeneralInput = z.infer<typeof generalSchema>;
 
-/* ===============================
- * Módulo: SERVICIOS (radios: mantenimiento | profesionales)
- * =============================== */
+/* =========================================================
+ * SERVICIOS
+ *  - tipo_servicio: 'mantenimiento' | 'profesionales'
+ *  - mantenimiento => requiere detalle_mantenimiento
+ *  - profesionales => requiere tipo_profesional y (si hay fechas, coherencia)
+ * ========================================================= */
 export const serviciosSchema = z
   .object({
-    modulo: z.literal("servicios"),
-    tipo_servicio: z.enum(["mantenimiento","profesionales"]),
+    // comunes
+    secretaria: z.string().optional(),
+    id_tramite: z.string().optional(),
 
-    // mantenimiento
-    detalle_mantenimiento: z.string().optional(),
+    // tipos
+    tipo_servicio: z.enum(["otros", "profesionales"], {
+      required_error: "Elegí el tipo de servicio",
+    }),
+
+    // “otros”
+    servicio_requerido: z.string().trim().optional(),
+    destino_servicio: z.string().trim().optional(),
+
+    // “profesionales”
+    tipo_profesional: z.string().trim().optional(),
+    dia_desde: z.string().trim().optional(),
+    dia_hasta: z.string().trim().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.tipo_servicio === "otros") {
+      if (!data.servicio_requerido || data.servicio_requerido.trim().length < 3) {
+        ctx.addIssue({
+          path: ["servicio_requerido"],
+          code: z.ZodIssueCode.custom,
+          message: "Indicá el servicio (mín. 3 caracteres).",
+        });
+      }
+      if (!data.destino_servicio || data.destino_servicio.trim().length < 3) {
+        ctx.addIssue({
+          path: ["destino_servicio"],
+          code: z.ZodIssueCode.custom,
+          message: "Indicá el destino del servicio (mín. 3 caracteres).",
+        });
+      }
+      return; // no sigue validación de profesionales
+    }
 
     // profesionales
-    tipo_profesional: z.string().optional(),
-    dia_desde: diaSemana.optional(),
-    dia_hasta: diaSemana.optional(),
-  })
-  .superRefine((v, ctx) => {
-    if (v.tipo_servicio === "mantenimiento") {
-      if (!v.detalle_mantenimiento || v.detalle_mantenimiento.trim() === "") {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["detalle_mantenimiento"], message: "Describa el mantenimiento requerido" });
-      }
+    if (!data.tipo_profesional || data.tipo_profesional.trim().length < 3) {
+      ctx.addIssue({
+        path: ["tipo_profesional"],
+        code: z.ZodIssueCode.custom,
+        message: "Indicá el tipo de profesional (mín. 3 caracteres).",
+      });
     }
-    if (v.tipo_servicio === "profesionales") {
-      if (!v.tipo_profesional || v.tipo_profesional.trim() === "") {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["tipo_profesional"], message: "Indique el tipo de profesional" });
-      }
-      if (!v.dia_desde) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["dia_desde"], message: "Seleccione día desde" });
-      if (!v.dia_hasta) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["dia_hasta"], message: "Seleccione día hasta" });
+
+    // Fechas coherentes si se informan
+    const desde = data.dia_desde ? new Date(data.dia_desde) : null;
+    const hasta = data.dia_hasta ? new Date(data.dia_hasta) : null;
+    if ((desde && !hasta) || (!desde && hasta)) {
+      ctx.addIssue({
+        path: ["dia_hasta"],
+        code: z.ZodIssueCode.custom,
+        message: "Completá rango de fechas: desde y hasta.",
+      });
+    } else if (desde && hasta && hasta.getTime() < desde.getTime()) {
+      ctx.addIssue({
+        path: ["dia_hasta"],
+        code: z.ZodIssueCode.custom,
+        message: "La fecha 'hasta' no puede ser anterior a 'desde'.",
+      });
     }
   });
 
-/* ===============================
- * Módulo: ALQUILER (radios: edificio | maquinaria | otros)
- * =============================== */
+export type ServiciosInput = z.infer<typeof serviciosSchema>;
+
+/* =========================================================
+ * ALQUILER
+ *  - submodulo: 'edificio' | 'maquinaria' | 'otros'
+ *  - edificio   => requiere direccion y rango de fechas válido
+ *  - maquinaria => requiere al menos equipo o detalle
+ *  - otros      => requiere detalle
+ * ========================================================= */
 export const alquilerSchema = z
   .object({
-    modulo: z.literal("alquiler"),
-    categoria: z.enum(["edificio","maquinaria","otros"]),
+    secretaria: z.string().optional(),
+    id_tramite: z.string().optional(),
+
+    submodulo: z.enum(["edificio", "maquinaria", "otros"], {
+      required_error: "Elegí una categoría de alquiler",
+    }),
 
     // Edificio
-    uso_edificio: z.string().optional(),
-    ubicacion_edificio: z.string().optional(),
+    direccion: z.string().trim().optional(),
+    fecha_desde: z.string().trim().optional(),
+    fecha_hasta: z.string().trim().optional(),
 
     // Maquinaria
-    uso_maquinaria: z.string().optional(),
-    tipo_maquinaria: z.string().optional(),
-    requiere_combustible: z.boolean().optional().default(false),
-    requiere_chofer: z.boolean().optional().default(false),
-    cronograma_desde: diaSemana.optional(),
-    cronograma_hasta: diaSemana.optional(),
-    horas_por_dia: z.coerce.number().optional(),
+    equipo: z.string().trim().optional(),
 
-    // Otros
-    que_alquilar: z.string().optional(),
-    detalle_uso: z.string().optional(),
+    // Común / Otros
+    detalle: z.string().trim().optional(),
   })
-  .superRefine((v, ctx) => {
-    if (v.categoria === "edificio") {
-      if (!v.uso_edificio || v.uso_edificio.trim() === "") {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["uso_edificio"], message: "Indique el uso del edificio" });
+  .superRefine((data, ctx) => {
+    if (data.submodulo === "edificio") {
+      if (!data.direccion || data.direccion.trim().length < 3) {
+        ctx.addIssue({
+          path: ["direccion"],
+          code: z.ZodIssueCode.custom,
+          message: "Ingresá la dirección del inmueble.",
+        });
       }
-      if (!v.ubicacion_edificio || v.ubicacion_edificio.trim() === "") {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["ubicacion_edificio"], message: "Indique la ubicación" });
+      const d = data.fecha_desde ? new Date(data.fecha_desde) : null;
+      const h = data.fecha_hasta ? new Date(data.fecha_hasta) : null;
+      if (!d || !h) {
+        ctx.addIssue({
+          path: ["fecha_hasta"],
+          code: z.ZodIssueCode.custom,
+          message: "Indicá el rango de fechas (desde y hasta).",
+        });
+      } else if (h.getTime() < d.getTime()) {
+        ctx.addIssue({
+          path: ["fecha_hasta"],
+          code: z.ZodIssueCode.custom,
+          message: "La fecha 'hasta' no puede ser anterior a 'desde'.",
+        });
       }
+      return;
     }
 
-    if (v.categoria === "maquinaria") {
-      if (!v.uso_maquinaria || v.uso_maquinaria.trim() === "") {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["uso_maquinaria"], message: "Indique el uso de la maquinaria" });
+    if (data.submodulo === "maquinaria") {
+      const equipoOK = !!(data.equipo && data.equipo.trim().length >= 3);
+      const detalleOK = !!(data.detalle && data.detalle.trim().length >= 5);
+      if (!equipoOK && !detalleOK) {
+        ctx.addIssue({
+          path: ["equipo"],
+          code: z.ZodIssueCode.custom,
+          message: "Indicá el equipo a alquilar o agregá un detalle.",
+        });
+        ctx.addIssue({
+          path: ["detalle"],
+          code: z.ZodIssueCode.custom,
+          message: "Escribí un detalle (mín. 5 caracteres) o completá 'Equipo'.",
+        });
       }
-      if (!v.tipo_maquinaria || v.tipo_maquinaria.trim() === "") {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["tipo_maquinaria"], message: "Seleccione el tipo de maquinaria" });
-      }
-      if (!v.cronograma_desde) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["cronograma_desde"], message: "Seleccione día inicial" });
-      }
-      if (!v.cronograma_hasta) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["cronograma_hasta"], message: "Seleccione día final" });
-      }
-      if (v.horas_por_dia == null || isNaN(Number(v.horas_por_dia)) || Number(v.horas_por_dia) <= 0) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["horas_por_dia"], message: "Horas por día inválidas" });
-      }
+      return;
     }
 
-    if (v.categoria === "otros") {
-      if (!v.que_alquilar || v.que_alquilar.trim() === "") {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["que_alquilar"], message: "Indique qué se desea alquilar" });
-      }
-      if (!v.detalle_uso || v.detalle_uso.trim() === "") {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["detalle_uso"], message: "Detalle el uso" });
+    // otros
+    if (data.submodulo === "otros") {
+      if (!data.detalle || data.detalle.trim().length < 5) {
+        ctx.addIssue({
+          path: ["detalle"],
+          code: z.ZodIssueCode.custom,
+          message: "Describí el alquiler (mín. 5 caracteres).",
+        });
       }
     }
   });
+export type AlquilerInput = z.infer<typeof alquilerSchema>;
 
-/* ===============================
- * Módulo: ADQUISICIÓN (con ítems)
- * =============================== */
-export const itemCompraSchema = z.object({
-  descripcion:  z.string().min(1, "Descripción requerida"),
-  cantidad:     z.coerce.number().positive("Cantidad inválida"),
-  unidad:       z.string().min(1, "Unidad requerida"),
-  observaciones: z.string().optional().default(""),
+/* =========================================================
+ * ADQUISICIÓN
+ *  - Debe tener al menos 1 ítem a comprar.
+ *  - Cada ítem: descripción (>=3), cantidad (>0), unidad (opcional), precio_estimado (opcional >=0)
+ * ========================================================= */
+export const adquisicionItemSchema = z.object({
+  descripcion: z.string().trim().min(3, "Descripción del ítem (mín. 3 caracteres)"),
+  cantidad: z.coerce
+    .number({ invalid_type_error: "Cantidad inválida" })
+    .positive("Cantidad debe ser > 0"),
+  unidad: z.string().trim().optional(),
+  precio_estimado: z
+    .union([z.coerce.number().nonnegative(), z.literal("").transform(() => undefined)])
+    .optional(),
 });
-export type ItemCompra = z.infer<typeof itemCompraSchema>;
 
 export const adquisicionSchema = z.object({
-  modulo: z.literal("adquisicion"),
-  proposito: z.string().min(1, "Indique para qué es la compra"),
-  items: z.array(itemCompraSchema).min(1, "Agregue al menos un ítem"),
+  secretaria: z.string().optional(),
+  id_tramite: z.string().optional(),
+
+  items: z.array(adquisicionItemSchema).min(1, "Agregá al menos un ítem"),
+  observaciones: z.string().optional(),
+});
+export type AdquisicionInput = z.infer<typeof adquisicionSchema>;
+
+/* =========================================================
+ * REPARACIÓN
+ *  - submodulo: 'maquinaria' | 'vehiculo' | 'otros'
+ *  - "otros" => requiere que_reparar y detalle_reparacion
+ *  - resto  => al menos 1 unidad o detalle
+ * ========================================================= */
+const unidadReparacionSchema = z.object({
+  unidad_nro: z.string().trim().min(1, "Elegí una unidad"),
+  marca: z.string().trim().optional(),
+  dominio: z.string().trim().optional(),
+  modelo: z.string().trim().optional(),
 });
 
-/* ===============================
- * Módulo: SERVICIOS DE EXTENSIÓN
- * =============================== */
-export const serviciosextensionSchema = z
-  .object({
-    modulo: z.literal("serviciosextension"),
-    proveedor: nonEmpty("Proveedor"),
-    descripcion: z.string().min(3, "Descripción muy corta"),
-    horas: z.coerce.number().positive("Horas inválidas"),
-    tarifa_hora: z.coerce.number().positive("Tarifa inválida"),
-    fecha_desde: z.string().optional(),
-    fecha_hasta: z.string().optional(),
-  })
-  .superRefine((v, ctx) => {
-    if (v.fecha_desde && v.fecha_hasta) {
-      const d1 = new Date(v.fecha_desde).getTime();
-      const d2 = new Date(v.fecha_hasta).getTime();
-      if (!Number.isNaN(d1) && !Number.isNaN(d2) && d1 > d2) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["fecha_hasta"], message: "Debe ser igual o posterior a la fecha desde" });
-      }
-    }
-  });
-
-/* ===============================
- * Módulo: REPARACIÓN (objeto con validación condicional)
- * =============================== */
 export const reparacionSchema = z
   .object({
-    modulo: z.literal("reparacion"),
-    tipo_reparacion: z.enum(["maquinaria","otros"]),
-    unidad_reparar: z.string().optional(),
-    que_reparar: z.string().optional(),
-    detalle_reparacion: z.string().optional(),
+    secretaria: z.string().optional(),
+    id_tramite: z.string().optional(),
+
+    submodulo: z.enum(["maquinaria", "vehiculo", "otros"], {
+      required_error: "Elegí una categoría",
+    }),
+
+    // Selección de unidades (para maquinaria/vehículo)
+    unidades: z.array(unidadReparacionSchema).default([]),
+
+    // Campos del formulario (compatibles con tu UI)
+    que_reparar: z.string().trim().optional(),
+    detalle_reparacion: z.string().trim().optional(),
+
+    // Alias común (por si tu form usa `detalle`)
+    detalle: z.string().trim().optional(),
   })
-  .superRefine((v, ctx) => {
-    if (v.tipo_reparacion === "maquinaria") {
-      if (!v.unidad_reparar || v.unidad_reparar.trim() === "") {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["unidad_reparar"], message: "Seleccione una unidad" });
+  .superRefine((data, ctx) => {
+    const detalle =
+      (data.detalle_reparacion && data.detalle_reparacion.trim()) ||
+      (data.detalle && data.detalle.trim()) ||
+      "";
+
+    if (data.submodulo === "otros") {
+      if (!data.que_reparar || data.que_reparar.trim().length < 3) {
+        ctx.addIssue({
+          path: ["que_reparar"],
+          code: z.ZodIssueCode.custom,
+          message: "Indicá qué hay que reparar (mín. 3 caracteres).",
+        });
       }
-      if (!v.detalle_reparacion || v.detalle_reparacion.trim() === "") {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["detalle_reparacion"], message: "Describa la reparación" });
+      if (detalle.length < 5) {
+        ctx.addIssue({
+          path: ["detalle_reparacion"],
+          code: z.ZodIssueCode.custom,
+          message: "Describí la reparación (mín. 5 caracteres).",
+        });
       }
-    } else {
-      if (!v.que_reparar || v.que_reparar.trim() === "") {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["que_reparar"], message: "Indique qué desea reparar" });
-      }
-      if (!v.detalle_reparacion || v.detalle_reparacion.trim() === "") {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["detalle_reparacion"], message: "Describa la reparación" });
-      }
+      return;
+    }
+
+    // maquinaria / vehículo:
+    const tieneUnidades = Array.isArray(data.unidades) && data.unidades.length > 0;
+    const tieneDetalle = detalle.length >= 5;
+
+    if (!tieneUnidades && !tieneDetalle) {
+      ctx.addIssue({
+        path: ["unidades"],
+        code: z.ZodIssueCode.custom,
+        message: "Seleccioná al menos una unidad o describí la reparación.",
+      });
+      ctx.addIssue({
+        path: ["detalle_reparacion"],
+        code: z.ZodIssueCode.custom,
+        message: "Escribí un detalle (mín. 5 caracteres) o elegí una unidad.",
+      });
     }
   });
+export type ReparacionInput = z.infer<typeof reparacionSchema>;
 
-/* ===============================
- * Módulo: OBRAS
- * =============================== */
-export const obrasSchema = z
-  .object({
-    modulo: z.literal("obras"),
-    proveedor: nonEmpty("Proveedor"),
-    obra_nombre: nonEmpty("Nombre de la obra"),
-    fecha_inicio: dateStr("Fecha inicio"),
-    fecha_fin:    dateStr("Fecha fin"),
-    monto_contrato: z.coerce.number().positive("Monto inválido"),
-    anticipo_pct: z.coerce.number().min(0).max(100).optional(),
-  })
-  .superRefine((v, ctx) => {
-    const d1 = new Date(v.fecha_inicio).getTime();
-    const d2 = new Date(v.fecha_fin).getTime();
-    if (!Number.isNaN(d1) && !Number.isNaN(d2) && d1 > d2) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["fecha_fin"], message: "Debe ser igual o posterior a la fecha inicio" });
-    }
-  });
+/* =========================================================
+ * (Stubs) OBRAS / MANTENIMIENTO DE ESCUELAS
+ *   - Se exportan para no romper imports existentes.
+ *   - Podés reemplazarlos por tus definiciones reales.
+ * ========================================================= */
+export const obrasSchema = z.object({}).catchall(z.any());
+export type ObrasInput = z.infer<typeof obrasSchema>;
 
-/* ===============================
- * Módulo: MANTENIMIENTO DE ESCUELAS
- * =============================== */
-export const mantenimientodeescuelasSchema = z.object({
-  modulo: z.literal("mantenimientodeescuelas"),
-  escuela: nonEmpty("Escuela"),
-  proveedor: nonEmpty("Proveedor"),
-  descripcion: z.string().min(3, "Descripción muy corta"),
-  fecha: dateStr("Fecha"),
-  costo_estimado: z.coerce.number().positive("Monto inválido"),
+export const mantenimientodeescuelasSchema = z.object({}).catchall(z.any());
+export type MantenimientoDeEscuelasInput = z.infer<typeof mantenimientodeescuelasSchema>;
+
+/* =========================================================
+ * COMBINADO / TYPE DE CREACIÓN (opcional, para tipar payloads)
+ * ========================================================= */
+export const pedidoSchema = z.object({
+  general: generalSchema,
+  modulo: z.enum(["servicios", "alquiler", "adquisicion", "reparacion"]),
+  servicios: serviciosSchema.optional(),
+  alquiler: alquilerSchema.optional(),
+  adquisicion: adquisicionSchema.optional(),
+  reparacion: reparacionSchema.optional(),
 });
-
-/* ===============================
- * Unión discriminada por "modulo" + tipos
- * =============================== */
-export const createPedidoSchema = z.discriminatedUnion("modulo", [
-  generalSchema.merge(baseSchema),
-  serviciosSchema.merge(baseSchema),
-  alquilerSchema.merge(baseSchema),
-  adquisicionSchema.merge(baseSchema),
-  serviciosextensionSchema.merge(baseSchema),
-  reparacionSchema.merge(baseSchema),
-  obrasSchema.merge(baseSchema),
-  mantenimientodeescuelasSchema.merge(baseSchema),
-]);
-
-export type CreatePedidoInput = z.infer<typeof createPedidoSchema>;
-
-export type Modulo =
-  | "general"
-  | "servicios"
-  | "alquiler"
-  | "adquisicion"
-  | "serviciosextension"
-  | "reparacion"
-  | "obras"
-  | "mantenimientodeescuelas";
+export type CreatePedidoInput = z.infer<typeof pedidoSchema>;

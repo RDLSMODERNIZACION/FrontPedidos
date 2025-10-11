@@ -24,6 +24,33 @@ export default function StepAmbitos(props: {
     obrasForm, escForm, onBack, onNext
   } = props;
 
+  // Validar mínimamente por valor, sin forzar resolver completo de módulo
+  const obraId = Number(obrasForm?.getValues?.("obra_id") ?? 0);
+  const escuelaId = Number(escForm?.getValues?.("escuela_id") ?? 0);
+
+  const bloqueoObra =
+    ambitoIncluido === "obra" && (!obraId || Number.isNaN(obraId));
+  const bloqueoEscuela =
+    ambitoIncluido === "mantenimientodeescuelas" && (!escuelaId || Number.isNaN(escuelaId));
+
+  const puedeSeguir =
+    (ambitoIncluido || ambitoSelected === "ninguno") &&
+    !bloqueoObra &&
+    !bloqueoEscuela;
+
+  async function handleNext() {
+    // Si quisieras forzar validación de Zod del subform (opcional):
+    // if (ambitoIncluido === "obra") {
+    //   const ok = await obrasForm.trigger();
+    //   if (!ok) return;
+    // }
+    // if (ambitoIncluido === "mantenimientodeescuelas") {
+    //   const ok = await escForm.trigger();
+    //   if (!ok) return;
+    // }
+    onNext();
+  }
+
   return (
     <div className="grid gap-4">
       <section className="grid gap-3">
@@ -94,9 +121,17 @@ export default function StepAmbitos(props: {
         </button>
         <button
           className="btn"
-          onClick={onNext}
-          disabled={!(ambitoIncluido || ambitoSelected === "ninguno")}
-          title={!(ambitoIncluido || ambitoSelected === "ninguno") ? "Incluí un ambiente o elegí 'Ninguno'" : ""}
+          onClick={handleNext}
+          disabled={!puedeSeguir}
+          title={
+            !ambitoIncluido && ambitoSelected !== "ninguno"
+              ? "Incluí un ambiente o elegí 'Ninguno'"
+              : bloqueoObra
+                ? "Seleccioná una obra para continuar"
+                : bloqueoEscuela
+                  ? "Seleccioná una escuela para continuar"
+                  : ""
+          }
         >
           Seguir <ArrowRight className="inline ml-1" size={16} />
         </button>
