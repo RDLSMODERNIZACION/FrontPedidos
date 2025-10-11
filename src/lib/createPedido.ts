@@ -29,7 +29,10 @@ const genIdTramite = () => {
  * caso contrario usa las rutas mock locales /api/pedidos de Next.js)
  */
 export async function createPedido(input: CreatePedidoInput) {
-  const id_tramite = input.id_tramite?.trim() ? input.id_tramite : genIdTramite();
+  // ✅ No asumimos que CreatePedidoInput tenga id_tramite
+  const maybe = (input as Partial<{ id_tramite?: string }>).id_tramite;
+  const id_tramite =
+    typeof maybe === "string" && maybe.trim().length > 0 ? maybe.trim() : genIdTramite();
 
   let total = 0;
   let payload: Record<string, any> = {};
@@ -126,25 +129,24 @@ export async function createPedido(input: CreatePedidoInput) {
     }
 
     case "reparacion": {
-  // Esta UI no tiene montos → total = 0
-  total = 0;
+      // Esta UI no tiene montos → total = 0
+      total = 0;
 
-  if ((input as any).tipo_reparacion === "maquinaria") {
-    payload = {
-      tipo_reparacion: "maquinaria",
-      unidad_reparar: (input as any).unidad_reparar,
-      detalle_reparacion: (input as any).detalle_reparacion,
-    };
-  } else {
-    payload = {
-      tipo_reparacion: "otros",
-      que_reparar: (input as any).que_reparar,
-      detalle_reparacion: (input as any).detalle_reparacion,
-    };
-  }
-  break;
-}
-
+      if ((input as any).tipo_reparacion === "maquinaria") {
+        payload = {
+          tipo_reparacion: "maquinaria",
+          unidad_reparar: (input as any).unidad_reparar,
+          detalle_reparacion: (input as any).detalle_reparacion,
+        };
+      } else {
+        payload = {
+          tipo_reparacion: "otros",
+          que_reparar: (input as any).que_reparar,
+          detalle_reparacion: (input as any).detalle_reparacion,
+        };
+      }
+      break;
+    }
 
     case "obras": {
       const contrato = Number((input as any).monto_contrato) || 0;
@@ -182,17 +184,17 @@ export async function createPedido(input: CreatePedidoInput) {
   const url = base ? `${base}/pedidos` : `/api/pedidos`;
 
   const res = await fetch(url, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  cache: "no-store",
-  body: JSON.stringify({
-    id_tramite,
-    modulo: input.modulo,
-    // area_destino: REMOVIDO
-    total,
-    payload,
-  }),
-});
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    cache: "no-store",
+    body: JSON.stringify({
+      id_tramite,
+      modulo: input.modulo,
+      // area_destino: REMOVIDO
+      total,
+      payload,
+    }),
+  });
 
   if (!res.ok) throw new Error(`API ${res.status}`);
   return res.json();
