@@ -22,8 +22,18 @@ export type TimelineStage = {
 
 export type TimelineProps = {
   stages: TimelineStage[];
+  /** Intervalo entre etapas en autoplay */
+  cycleMs?: number;
+  /** NUEVO: título visible (compat con page.tsx) */
+  title?: string;
+  /** Alias opcional por compatibilidad */
+  heading?: string;
+  /** NUEVO: alias de autoplay (compat con page.tsx) */
+  playing?: boolean;
+  /** Autoplay tradicional (si no se pasa, usa `playing` o true) */
   autoplay?: boolean;
-  cycleMs?: number; // tiempo para pasar a la próxima etapa
+  /** Clase extra para el contenedor */
+  className?: string;
 };
 
 function usePrefersReducedMotion() {
@@ -44,17 +54,29 @@ function usePrefersReducedMotion() {
  * - Autoplay con pausa en hover.
  * - Respeta prefers-reduced-motion.
  */
-export default function Timeline({ stages, autoplay = true, cycleMs = 5000 }: TimelineProps) {
+export default function Timeline({
+  stages,
+  autoplay,
+  playing,
+  cycleMs = 5000,
+  title,
+  heading,
+  className,
+}: TimelineProps) {
   const reduced = usePrefersReducedMotion();
   const [idx, setIdx] = React.useState(0);
   const [paused, setPaused] = React.useState(false);
   const safeStages = Array.isArray(stages) && stages.length ? stages : [];
 
+  // Compat: `playing` tiene prioridad; luego `autoplay`; por defecto true
+  const auto = playing ?? autoplay ?? true;
+  const header = title ?? heading ?? "Así avanza un expediente típico";
+
   React.useEffect(() => {
-    if (!autoplay || reduced || paused || safeStages.length <= 1) return;
+    if (!auto || reduced || paused || safeStages.length <= 1) return;
     const t = setInterval(() => setIdx((i) => (i + 1) % safeStages.length), cycleMs);
     return () => clearInterval(t);
-  }, [autoplay, reduced, paused, cycleMs, safeStages.length]);
+  }, [auto, reduced, paused, cycleMs, safeStages.length]);
 
   if (safeStages.length === 0) {
     return (
@@ -66,15 +88,18 @@ export default function Timeline({ stages, autoplay = true, cycleMs = 5000 }: Ti
 
   return (
     <section
-      aria-label="Así avanza un expediente típico"
-      className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.03] p-4 md:p-6"
+      aria-label={header}
+      className={
+        "rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.03] p-4 md:p-6 " +
+        (className ?? "")
+      }
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
       <header className="mb-4 flex items-center justify-between gap-2">
-        <h3 className="text-base md:text-lg font-semibold">Así avanza un expediente típico</h3>
+        <h3 className="text-base md:text-lg font-semibold">{header}</h3>
         <div className="text-xs text-[#9aa3b2]">
-          {reduced ? "Animaciones reducidas" : paused ? "Pausado" : "Reproduciendo"}
+          {reduced ? "Animaciones reducidas" : paused ? "Pausado" : auto ? "Reproduciendo" : "Detenido"}
         </div>
       </header>
 
@@ -91,8 +116,7 @@ export default function Timeline({ stages, autoplay = true, cycleMs = 5000 }: Ti
                   <div className="relative">
                     <span
                       className={
-                        "block h-3 w-3 rounded-full " +
-                        (active ? "bg-emerald-400" : "bg-white/30")
+                        "block h-3 w-3 rounded-full " + (active ? "bg-emerald-400" : "bg-white/30")
                       }
                       title={
                         (s.whoNow ? "Quién lo tiene ahora: " + s.whoNow : "") +
