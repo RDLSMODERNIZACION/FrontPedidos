@@ -8,7 +8,7 @@ export type UpdateEstadoOpts = {
 
 export async function setEstadoPedido(
   id: number,
-  estado: "aprobado" | "en_revision",
+  estado: "aprobado" | "en_revision" | "rechazado",
   opts: UpdateEstadoOpts = {}
 ) {
   const base = process.env.NEXT_PUBLIC_API_BASE || "";
@@ -17,9 +17,9 @@ export async function setEstadoPedido(
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
-  if (opts.token) headers["Authorization"] = `Bearer ${opts.token}`;
-  if (opts.user) headers["X-User"] = String(opts.user);
-  if (opts.secretaria) headers["X-Secretaria"] = String(opts.secretaria);
+  if (opts.token) headers.Authorization = `Bearer ${opts.token}`;
+  if (opts.user) headers["X-User"] = opts.user;
+  if (opts.secretaria) headers["X-Secretaria"] = opts.secretaria;
 
   const res = await fetch(url, {
     method: "POST",

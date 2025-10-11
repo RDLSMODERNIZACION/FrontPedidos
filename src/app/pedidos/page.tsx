@@ -18,9 +18,15 @@ import ApprovalActions from "@/components/ApprovalActions";
 import { canView, canModerate, isEconomiaAdmin, isAreaCompras, isSecretariaCompras } from "@/lib/roles";
 import { setEstadoPedido } from "@/lib/pedidosActions";
 
-// 👇 archivos (uploader + helper para detectar formal_pdf)
+// 👇 archivos (uploader + helpers)
 import ArchivoFormalUploader from "@/components/pedidos/ArchivoFormalUploader";
-import { listPedidoArchivos, type PedidoArchivo, fileUrl } from "@/lib/pedidos";
+import {
+  listPedidoArchivos,
+  type PedidoArchivo,
+  fileUrl,
+  reviewArchivo,
+  type ReviewDecision
+} from "@/lib/pedidos";
 
 const SECRETARIAS = [
   "SECRETARÍA DE ECONOMIA HACIENDA Y FINANZAS PUBLICAS",
@@ -39,6 +45,12 @@ function Row({label, value}:{label:string; value: React.ReactNode}) {
       <div className="text-white">{value ?? "—"}</div>
     </div>
   );
+}
+
+// Badge compacta para estado de revisión de documentos
+function ReviewBadge({ st }: { st?: string }) {
+  const tone = st === "aprobado" ? "text-emerald-400" : st === "observado" ? "text-red-400" : "text-amber-300";
+  return <span className={`text-xs ${tone}`}>{st ?? "pendiente"}</span>;
 }
 
 export default function Page() {
@@ -148,28 +160,32 @@ export default function Page() {
 
   // ---------- Archivos: badge + listado por pestaña ----------
   const [hasFormal, setHasFormal] = useState<boolean>(false);
+  const [hasExp1, setHasExp1] = useState<boolean>(false);
+  const [hasExp2, setHasExp2] = useState<boolean>(false);
   const [loadingArchivos, setLoadingArchivos] = useState<boolean>(false);
 
   const [files, setFiles] = useState<PedidoArchivo[]>([]);
   const [filesLoading, setFilesLoading] = useState(false);
   const [filesErr, setFilesErr] = useState<string | null>(null);
 
-  // Consulta liviana para el chip (PDF firmado)
-  async function checkFormal(p: BackendPedido | null) {
-    if (!p) { setHasFormal(false); return; }
+  // Consulta liviana para el chip y flags (PDF firmado / exp1 / exp2)
+  async function checkArchivoFlags(p: BackendPedido | null) {
+    if (!p) { setHasFormal(false); setHasExp1(false); setHasExp2(false); return; }
     try {
       setLoadingArchivos(true);
       const archs: PedidoArchivo[] = await listPedidoArchivos(p.id);
       setHasFormal(archs.some(a => a.kind === "formal_pdf"));
+      setHasExp1(archs.some(a => a.kind === "expediente_1"));
+      setHasExp2(archs.some(a => a.kind === "expediente_2"));
     } catch {
-      setHasFormal(false);
+      setHasFormal(false); setHasExp1(false); setHasExp2(false);
     } finally {
       setLoadingArchivos(false);
     }
   }
-  useEffect(() => { void checkFormal(selected); }, [selected?.id]);
+  useEffect(() => { void checkArchivoFlags(selected); }, [selected?.id]);
 
-  // Lista completa sólo al abrir pestaña Archivos
+  // Lista completa (para pestañas Archivos/Admin)
   async function refreshArchivosLista(p: BackendPedido | null) {
     if (!p) { setFiles([]); setFilesErr(null); return; }
     try {
@@ -178,6 +194,8 @@ export default function Page() {
       const archs = await listPedidoArchivos(p.id);
       setFiles(archs);
       setHasFormal(archs.some(a => a.kind === "formal_pdf"));
+      setHasExp1(archs.some(a => a.kind === "expediente_1"));
+      setHasExp2(archs.some(a => a.kind === "expediente_2"));
     } catch (e:any) {
       setFilesErr(e?.message ?? "Error al listar archivos");
       setFiles([]);
@@ -186,8 +204,67 @@ export default function Page() {
     }
   }
   useEffect(() => {
-    if (activeTab === "archivos" && selected?.id) void refreshArchivosLista(selected);
+    if ((activeTab === "archivos" || activeTab === "admin") && selected?.id) {
+      void refreshArchivosLista(selected);
+    }
   }, [activeTab, selected?.id]);
+
+  // permisos / estados admin
+  const isTerminal = selected?.estado === "aprobado" || selected?.estado === "rechazado" || selected?.estado === "cerrado";
+  const canAct = !faltaSecretariaHdr && !!selected && canModerate(auth?.user, selected) && !isTerminal;
+
+  // ------- Upload helpers (Expedientes) -------
+  async function uploadTipoDoc(pedidoId: number, tipoDoc: "expediente_1" | "expediente_2", file: File) {
+    if (!file) throw new Error("Seleccioná un archivo");
+    if (file.type && file.type !== "application/pdf") throw new Error("Sólo PDF.");
+    const fd = new FormData();
+    fd.append("tipo_doc", tipoDoc);
+    fd.append("archivo", file, file.name);
+    const res = await fetch(`${API_BASE}/pedidos/${pedidoId}/archivos`, {
+      method: "POST",
+      headers: { ...authHeaders(auth?.token) }, // NO setear Content-Type
+      body: fd,
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      throw new Error(`Upload ${tipoDoc} falló (${res.status}): ${t}`);
+    }
+    return res.json();
+  }
+
+  // inputs controlados (para no duplicar estados)
+  const [exp1File, setExp1File] = useState<File | null>(null);
+  const [exp2File, setExp2File] = useState<File | null>(null);
+
+  // helpers admin revisión
+  const formal = files.find(a => a.kind === "formal_pdf");
+  const exp1Doc = files.find(a => a.kind === "expediente_1");
+  const exp2Doc = files.find(a => a.kind === "expediente_2");
+
+  async function refreshEstadoPedido(pId: number) {
+    const res = await fetch(`${API_BASE}/ui/pedidos/${pId}`, {
+      headers: { ...authHeaders(auth?.token) },
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const det = await res.json();
+      setSelected(s => (s ? { ...s, estado: det.estado } : s));
+      // refrescar KPI en fila
+      setItems(arr => arr.map(r => (r.id === pId ? { ...r, estado: det.estado } : r)));
+    }
+  }
+
+  // acción genérica de revisión
+  async function onReviewAction(archivoId: number, decision: ReviewDecision, notes?: string | null) {
+    try {
+      setActionBusy(true);
+      await reviewArchivo(archivoId, decision, notes);
+      await refreshArchivosLista(selected);
+      await refreshEstadoPedido(selected!.id);
+    } finally {
+      setActionBusy(false);
+    }
+  }
 
   return (
     <RequireAuth>
@@ -219,7 +296,7 @@ export default function Page() {
             <label className="grid gap-1 text-[#9aa3b2]">
               <span>Estado</span>
               <select
-                className="bg-panel2 border border-[#27314a] rounded-xl px-3 py-2 min-w-[180px]"
+                className="bg-panel2 border border-[#27314a] rounded-xl px-3 py-2 min-w-[200px]"
                 value={filtros.estado}
                 onChange={e => setFiltros(f => ({ ...f, estado: e.target.value }))}
               >
@@ -229,6 +306,8 @@ export default function Page() {
                 <option value="en_revision">en_revision</option>
                 <option value="aprobado">aprobado</option>
                 <option value="rechazado">rechazado</option>
+                <option value="en_proceso">en_proceso</option>
+                <option value="area_pago">area_pago</option>
                 <option value="cerrado">cerrado</option>
               </select>
             </label>
@@ -301,7 +380,7 @@ export default function Page() {
             <div className="grid gap-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone={selected.estado === "aprobado" || selected.estado === "cerrado" ? "ok" : selected.estado === "rechazado" ? "bad" : "warn"}>
-                  {cap(selected.estado)}
+                  {cap(selected.estado.replace("_"," "))}
                 </Badge>
                 <Badge>{selected.solicitante ?? "—"}</Badge>
                 <Badge>{selected.secretaria}</Badge>
@@ -336,148 +415,13 @@ export default function Page() {
               {/* Paneles */}
               {activeTab === "info" && (
                 <>
-                  {/* Generales (como ya tenías) */}
+                  {/* Generales */}
                   <div className="card">
                     <h4 className="text-base font-semibold mb-2">Información</h4>
                     <Row label="Módulo"       value={cap((selected.modulo ?? selected.tipo_ambito ?? "—").toString())} />
                     <Row label="Solicitante"  value={selected.solicitante ?? "—"} />
                     <Row label="Creado"       value={fmtDate(selected.creado)} />
                     <Row label="Total"        value={fmtMoney(selected.total)} />
-                  </div>
-
-                  {/* Ambiente (cuando exista en detalle) */}
-                  <div className="card">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-base font-semibold">Ambiente</h4>
-                      <button className="btn-ghost" onClick={() => void fetchDetalle(selected)} disabled={detalleLoading}>
-                        {detalleLoading ? "Refrescando…" : "Refrescar"}
-                      </button>
-                    </div>
-                    {!detalleLoading && !detalle?.ambito && (
-                      <div className="text-sm text-[#9aa3b2]">Sin ambiente (o no disponible).</div>
-                    )}
-                    {!!detalle?.ambito && (
-                      <>
-                        <Row label="Tipo" value={detalle.ambito.tipo} />
-                        {detalle.ambito.tipo === "obra" && (
-                          <>
-                            <Row label="Nombre de la obra" value={detalle.ambito.obra?.obra_nombre ?? "—"} />
-                          </>
-                        )}
-                        {detalle.ambito.tipo === "mantenimientodeescuelas" && (
-                          <Row label="Escuela" value={detalle.ambito.escuelas?.escuela ?? "—"} />
-                        )}
-                      </>
-                    )}
-                    {!!detalleErr && <div className="text-xs text-amber-300 mt-2">{detalleErr}</div>}
-                  </div>
-
-                  {/* Módulo (cuando exista en detalle) */}
-                  <div className="card">
-                    <h4 className="text-base font-semibold mb-2">Módulo — Detalle</h4>
-                    {!detalleLoading && !detalle?.modulo && (
-                      <div className="text-sm text-[#9aa3b2]">Detalle de módulo no disponible.</div>
-                    )}
-                    {!!detalle?.modulo && (
-                      <>
-                        <Row label="Tipo" value={detalle.modulo.tipo} />
-                        {/* Servicios */}
-                        {detalle.modulo.tipo === "servicios" && (
-                          <>
-                            <Row label="Tipo de servicio" value={detalle.modulo.tipo_servicio} />
-                            {detalle.modulo.tipo_servicio === "mantenimiento" && (
-                              <Row label="Detalle" value={detalle.modulo.detalle_mantenimiento ?? "—"} />
-                            )}
-                            {detalle.modulo.tipo_servicio === "profesionales" && (
-                              <>
-                                <Row label="Tipo profesional" value={detalle.modulo.tipo_profesional ?? "—"} />
-                                <Row label="Día(s)" value={`${detalle.modulo.dia_desde ?? "—"} · ${detalle.modulo.dia_hasta ?? "—"}`} />
-                              </>
-                            )}
-                          </>
-                        )}
-
-                        {/* Alquiler */}
-                        {detalle.modulo.tipo === "alquiler" && (
-                          <>
-                            <Row label="Categoría" value={detalle.modulo.categoria} />
-                            {detalle.modulo.categoria === "edificio" && (
-                              <>
-                                <Row label="Uso" value={detalle.modulo.uso_edificio ?? "—"} />
-                                <Row label="Ubicación" value={detalle.modulo.ubicacion_edificio ?? "—"} />
-                              </>
-                            )}
-                            {detalle.modulo.categoria === "maquinaria" && (
-                              <>
-                                <Row label="Uso" value={detalle.modulo.uso_maquinaria ?? "—"} />
-                                <Row label="Tipo" value={detalle.modulo.tipo_maquinaria ?? "—"} />
-                                <Row label="Combustible / Chofer" value={`${detalle.modulo.requiere_combustible ? "Sí" : "No"} · ${detalle.modulo.requiere_chofer ? "Sí" : "No"}`} />
-                                <Row label="Cronograma" value={`${detalle.modulo.cronograma_desde ?? "—"} · ${detalle.modulo.cronograma_hasta ?? "—"}`} />
-                                <Row label="Horas por día" value={detalle.modulo.horas_por_dia ?? "—"} />
-                              </>
-                            )}
-                            {detalle.modulo.categoria === "otros" && (
-                              <>
-                                <Row label="Qué alquilar" value={detalle.modulo.que_alquilar ?? "—"} />
-                                <Row label="Detalle de uso" value={detalle.modulo.detalle_uso ?? "—"} />
-                              </>
-                            )}
-                          </>
-                        )}
-
-                        {/* Adquisición */}
-                        {detalle.modulo.tipo === "adquisicion" && (
-                          <>
-                            <Row label="Propósito" value={detalle.modulo.proposito ?? "—"} />
-                            <Row label="Modo" value={detalle.modulo.modo_adquisicion ?? "—"} />
-                            <div className="mt-2 rounded-xl border border-[#2b3550] overflow-hidden">
-                              <table className="w-full text-sm">
-                                <thead className="text-[#9aa3b2] bg-white/5">
-                                  <tr>
-                                    <th className="text-left px-3 py-2">Descripción</th>
-                                    <th className="text-right px-3 py-2">Cant.</th>
-                                    <th className="text-left px-3 py-2">Unidad</th>
-                                    <th className="text-right px-3 py-2">Precio unit.</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-[#1b2132]">
-                                  {Array.isArray(detalle.modulo.items) && detalle.modulo.items.length > 0 ? (
-                                    detalle.modulo.items.map((it:any, i:number) => (
-                                      <tr key={i}>
-                                        <td className="px-3 py-2">{it.descripcion}</td>
-                                        <td className="px-3 py-2 text-right">{it.cantidad ?? 1}</td>
-                                        <td className="px-3 py-2">{it.unidad ?? "—"}</td>
-                                        <td className="px-3 py-2 text-right">{it.precio_unitario ?? "—"}</td>
-                                      </tr>
-                                    ))
-                                  ) : (
-                                    <tr><td className="px-3 py-3 text-[#9aa3b2]" colSpan={4}>Sin ítems.</td></tr>
-                                  )}
-                                </tbody>
-                              </table>
-                            </div>
-                          </>
-                        )}
-
-                        {/* Reparación */}
-                        {detalle.modulo.tipo === "reparacion" && (
-                          <>
-                            <Row label="Tipo reparación" value={detalle.modulo.tipo_reparacion} />
-                            {detalle.modulo.tipo_reparacion === "maquinaria" ? (
-                              <>
-                                <Row label="Unidad a reparar" value={detalle.modulo.unidad_reparar ?? "—"} />
-                                <Row label="Detalle" value={detalle.modulo.detalle_reparacion ?? "—"} />
-                              </>
-                            ) : (
-                              <>
-                                <Row label="Qué reparar" value={detalle.modulo.que_reparar ?? "—"} />
-                                <Row label="Detalle" value={detalle.modulo.detalle_reparacion ?? "—"} />
-                              </>
-                            )}
-                          </>
-                        )}
-                      </>
-                    )}
                   </div>
                 </>
               )}
@@ -517,12 +461,15 @@ export default function Page() {
                         ) : (
                           files.map(a => (
                             <tr key={a.id}>
-                              <td className="px-3 py-2">{a.kind}</td>
                               <td className="px-3 py-2">
-                                <a className="link" href={fileUrl(a.url)} target="_blank" rel="noreferrer">{a.filename}</a>
+                                {a.kind} {a.review_status ? <>&nbsp;·&nbsp;<ReviewBadge st={a.review_status} /></> : null}
                               </td>
-                              <td className="px-3 py-2 text-right">{Math.round(a.size_bytes/1024)} KB</td>
-                              <td className="px-3 py-2">{new Date(a.uploaded_at).toLocaleString()}</td>
+                              <td className="px-3 py-2">
+                                <a className="link" href={fileUrl(a.url, a.id)} target="_blank" rel="noreferrer">{a.filename}</a>
+                                {a.review_notes ? <div className="text-xs text-[#9aa3b2] mt-0.5">Notas: {a.review_notes}</div> : null}
+                              </td>
+                              <td className="px-3 py-2 text-right">{Math.round((a.size_bytes ?? 0)/1024)} KB</td>
+                              <td className="px-3 py-2">{a.uploaded_at ? new Date(a.uploaded_at).toLocaleString() : "—"}</td>
                             </tr>
                           ))
                         )}
@@ -536,18 +483,17 @@ export default function Page() {
                 <section className="card">
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="text-base font-semibold">Estado del trámite</h4>
-                    <span className="text-xs text-[#9aa3b2]">Próximamente: fuente desde backend</span>
+                    <span className="text-xs text-[#9aa3b2]">Referencia visual</span>
                   </div>
-                  <ol className="flex items-center justify-between gap-2">
-                    {["enviado","en_revision","aprobado","rechazado","cerrado"].map((k) => {
-                      const reached = k === selected.estado
-                        ? true
-                        : ["enviado","en_revision","aprobado","rechazado","cerrado"].indexOf(k)
-                          <= ["enviado","en_revision","aprobado","rechazado","cerrado"].indexOf(selected.estado);
+                  <ol className="grid grid-cols-1 sm:grid-cols-7 gap-2">
+                    {["borrador","enviado","en_revision","aprobado","en_proceso","area_pago","cerrado"].map((k) => {
+                      const reached = ["borrador","enviado","en_revision","aprobado","en_proceso","area_pago","cerrado"]
+                        .indexOf(k) <= ["borrador","enviado","en_revision","aprobado","en_proceso","area_pago","cerrado"]
+                        .indexOf(selected.estado);
                       return (
-                        <li key={k} className="flex-1">
-                          <div className={`h-2 rounded-full ${reached ? "bg-emerald-500" : "bg-[#1c2436]"}`} />
-                          <div className="mt-1 text-xs text-[#cfd6e6]">{cap(k.replace("_"," "))}</div>
+                        <li key={k} className="flex flex-col items-center gap-1">
+                          <div className={`h-2 w-full rounded-full ${reached ? "bg-emerald-500" : "bg-[#1c2436]"}`} />
+                          <div className="text-xs text-[#cfd6e6]">{cap(k.replace("_"," "))}</div>
                         </li>
                       );
                     })}
@@ -556,15 +502,17 @@ export default function Page() {
               )}
 
               {activeTab === "admin" && (
-                <section className="card grid gap-3">
-                  {faltaSecretariaHdr && (
+                <section className="card grid gap-4">
+                  {!auth?.user?.secretaria && (
                     <div className="text-yellow-400 text-sm">
-                      Para aprobar o marcar en revisión necesitás tener una <b>Secretaría</b> asociada a tu usuario (X-Secretaria).
+                      Para aprobar / revisar necesitás tener una <b>Secretaría</b> en tu usuario.
                     </div>
                   )}
 
+                  {/* Acciones de estado (Aprobar / En revisión / Rechazar con confirmación) */}
                   <ApprovalActions
-                    canAct={!faltaSecretariaHdr && canModerate(auth?.user, selected)}
+                    canAct={canAct}
+                    estadoActual={selected.estado}
                     loading={actionBusy}
                     onApprove={async () => {
                       if (!selected) return;
@@ -577,7 +525,7 @@ export default function Page() {
                         });
                         setSelected(s => (s ? { ...s, estado: "aprobado" } : s));
                         setItems(arr => arr.map(r => r.id === selected.id ? { ...r, estado: "aprobado" } : r));
-                        await checkFormal({ ...selected, estado: "aprobado" } as BackendPedido);
+                        await checkArchivoFlags({ ...selected, estado: "aprobado" } as BackendPedido);
                       } finally {
                         setActionBusy(false);
                       }
@@ -597,7 +545,7 @@ export default function Page() {
                         setActionBusy(false);
                       }
                     }}
-                    onReject={async () => {
+                    onReject={async (motivo?: string | null) => {
                       if (!selected) return;
                       try {
                         setActionBusy(true);
@@ -605,6 +553,7 @@ export default function Page() {
                           token: auth?.token,
                           user: auth?.user?.username,
                           secretaria: auth?.user?.secretaria ?? undefined,
+                          motivo: motivo ?? null,
                         });
                         setSelected(s => (s ? { ...s, estado: "rechazado" } : s));
                         setItems(arr => arr.map(r => r.id === selected.id ? { ...r, estado: "rechazado" } : r));
@@ -613,6 +562,187 @@ export default function Page() {
                       }
                     }}
                   />
+
+                  {/* ====== FORMAL: revisión (Aprobar / Observar) ====== */}
+                  <div className="rounded-xl border border-[#2b3550] p-3 grid gap-2">
+                    <div className="text-sm flex flex-wrap items-center gap-2">
+                      <b>PDF firmado (formal)</b>
+                      {formal ? (
+                        <>
+                          <span className="text-[#9aa3b2]">·</span>
+                          <a className="link" href={fileUrl(formal.url, formal.id)} target="_blank" rel="noreferrer">
+                            {formal.filename}
+                          </a>
+                          <span className="text-[#9aa3b2]">· Revisión:</span> <ReviewBadge st={formal.review_status} />
+                          {formal.review_notes ? <span className="text-[#9aa3b2]"> · Notas: {formal.review_notes}</span> : null}
+                        </>
+                      ) : (
+                        <span className="text-[#9aa3b2]">Aún no se subió</span>
+                      )}
+                    </div>
+                    {formal && (
+                      <div className="flex gap-2">
+                        <button
+                          className="btn-ghost"
+                          disabled={actionBusy || formal.review_status === "aprobado"}
+                          onClick={() => onReviewAction(formal.id, "aprobado")}
+                        >
+                          Aprobar formal
+                        </button>
+                        <button
+                          className="btn-ghost text-red-400 border border-red-500/40"
+                          disabled={actionBusy}
+                          onClick={async () => {
+                            const notes = window.prompt("Motivo de observación (opcional):") ?? "";
+                            await onReviewAction(formal.id, "observado", notes);
+                          }}
+                        >
+                          Observar formal
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ====== EXPEDIENTE 1 (Contrataciones / Compras) ====== */}
+                  <div className="rounded-xl border border-[#2b3550] p-3 grid gap-2">
+                    <div className="text-sm">
+                      <b>Expediente 1 – Contrataciones/Compras</b>
+                      <div className="text-[#9aa3b2]">
+                        Subir el PDF de expediente 1. Se habilita cuando el pedido tiene <i>PDF firmado</i> y está en
+                        estado <code>en_proceso</code>. Luego <b>aprobalo/observalo</b> desde acá.
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        onChange={(e) => setExp1File(e.target.files?.[0] ?? null)}
+                        disabled={!(selected.estado === "en_proceso" && hasFormal)}
+                        className="file:btn file:mr-3"
+                      />
+                      <button
+                        className="btn"
+                        disabled={actionBusy || !exp1File || !(selected.estado === "en_proceso" && hasFormal)}
+                        onClick={async () => {
+                          if (!selected || !exp1File) return;
+                          try {
+                            setActionBusy(true);
+                            await uploadTipoDoc(selected.id, "expediente_1", exp1File);
+                            setExp1File(null);
+                            await refreshArchivosLista(selected);
+                          } catch (e:any) {
+                            alert(e?.message ?? "Error subiendo expediente 1");
+                          } finally {
+                            setActionBusy(false);
+                          }
+                        }}
+                      >
+                        Subir expediente 1
+                      </button>
+                    </div>
+                    {exp1Doc ? (
+                      <div className="flex flex-wrap items-center gap-2 text-sm">
+                        <div>
+                          <a className="link" href={fileUrl(exp1Doc.url, exp1Doc.id)} target="_blank" rel="noreferrer">
+                            {exp1Doc.filename}
+                          </a>
+                          <span className="text-[#9aa3b2]"> · Revisión:</span> <ReviewBadge st={exp1Doc.review_status} />
+                          {exp1Doc.review_notes ? <span className="text-[#9aa3b2]"> · Notas: {exp1Doc.review_notes}</span> : null}
+                        </div>
+                        <div className="ml-auto flex gap-2">
+                          <button
+                            className="btn-ghost"
+                            disabled={actionBusy || exp1Doc.review_status === "aprobado"}
+                            onClick={() => onReviewAction(exp1Doc.id, "aprobado")}
+                          >
+                            Aprobar exp. 1
+                          </button>
+                          <button
+                            className="btn-ghost text-red-400 border border-red-500/40"
+                            disabled={actionBusy}
+                            onClick={async () => {
+                              const notes = window.prompt("Motivo de observación (opcional):") ?? "";
+                              await onReviewAction(exp1Doc.id, "observado", notes);
+                            }}
+                          >
+                            Observar exp. 1
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-[#9aa3b2]">Aún no se subió el expediente 1.</div>
+                    )}
+                  </div>
+
+                  {/* ====== EXPEDIENTE 2 (Área de pago) ====== */}
+                  <div className="rounded-xl border border-[#2b3550] p-3 grid gap-2">
+                    <div className="text-sm">
+                      <b>Expediente 2 – Área de pago</b>
+                      <div className="text-[#9aa3b2]">
+                        Subir el PDF de expediente 2 cuando el pedido esté en <code>area_pago</code>. Luego <b>aprobalo/observalo</b> desde acá.
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        onChange={(e) => setExp2File(e.target.files?.[0] ?? null)}
+                        disabled={!(selected.estado === "area_pago" && hasExp1)}
+                        className="file:btn file:mr-3"
+                      />
+                      <button
+                        className="btn"
+                        disabled={actionBusy || !exp2File || !(selected.estado === "area_pago" && hasExp1)}
+                        onClick={async () => {
+                          if (!selected || !exp2File) return;
+                          try {
+                            setActionBusy(true);
+                            await uploadTipoDoc(selected.id, "expediente_2", exp2File);
+                            setExp2File(null);
+                            await refreshArchivosLista(selected);
+                          } catch (e:any) {
+                            alert(e?.message ?? "Error subiendo expediente 2");
+                          } finally {
+                            setActionBusy(false);
+                          }
+                        }}
+                      >
+                        Subir expediente 2
+                      </button>
+                    </div>
+                    {exp2Doc ? (
+                      <div className="flex flex-wrap items-center gap-2 text-sm">
+                        <div>
+                          <a className="link" href={fileUrl(exp2Doc.url, exp2Doc.id)} target="_blank" rel="noreferrer">
+                            {exp2Doc.filename}
+                          </a>
+                          <span className="text-[#9aa3b2]"> · Revisión:</span> <ReviewBadge st={exp2Doc.review_status} />
+                          {exp2Doc.review_notes ? <span className="text-[#9aa3b2]"> · Notas: {exp2Doc.review_notes}</span> : null}
+                        </div>
+                        <div className="ml-auto flex gap-2">
+                          <button
+                            className="btn-ghost"
+                            disabled={actionBusy || exp2Doc.review_status === "aprobado"}
+                            onClick={() => onReviewAction(exp2Doc.id, "aprobado")}
+                          >
+                            Aprobar exp. 2
+                          </button>
+                          <button
+                            className="btn-ghost text-red-400 border border-red-500/40"
+                            disabled={actionBusy}
+                            onClick={async () => {
+                              const notes = window.prompt("Motivo de observación (opcional):") ?? "";
+                              await onReviewAction(exp2Doc.id, "observado", notes);
+                            }}
+                          >
+                            Observar exp. 2
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-[#9aa3b2]">Aún no se subió el expediente 2.</div>
+                    )}
+                  </div>
                 </section>
               )}
             </div>
