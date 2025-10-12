@@ -1,5 +1,7 @@
 // src/lib/createPedido.ts
 import type { CreatePedidoInput } from "./schemas";
+import { API_BASE, authHeaders } from "@/lib/api";
+import { loadAuth } from "@/lib/auth";
 
 /**
  * Helpers locales (sin dependencias externas)
@@ -25,8 +27,7 @@ const genIdTramite = () => {
 };
 
 /**
- * Creador de pedidos (apunta a FastAPI si NEXT_PUBLIC_API_BASE está definido;
- * caso contrario usa las rutas mock locales /api/pedidos de Next.js)
+ * Creador de pedidos (envía Authorization y adjunta 'secretaria' si está disponible)
  */
 export async function createPedido(input: CreatePedidoInput) {
   // `id_tramite` es opcional: si no viene, lo generamos.
@@ -34,12 +35,20 @@ export async function createPedido(input: CreatePedidoInput) {
   const id_tramite =
     typeof maybe === "string" && maybe.trim().length > 0 ? maybe.trim() : genIdTramite();
 
+  // Tomamos secretaria desde el input (si el form la trae) o desde el perfil persistido
+  const auth = loadAuth();
+  const secretariaSafe: string | null =
+    (input as any)?.secretaria ??
+    auth?.user?.secretaria ??
+    auth?.user?.department ??
+    auth?.user?.departamento ??
+    null;
+
   let total = 0;
   let payload: Record<string, any> = {};
 
   switch (input.modulo) {
     case "servicios": {
-      // Nueva UI: radios "mantenimiento" | "profesionales" (sin montos)
       total = 0;
       const tipo = (input as any).tipo_servicio as "mantenimiento" | "profesionales";
       if (tipo === "mantenimiento") {
@@ -59,7 +68,6 @@ export async function createPedido(input: CreatePedidoInput) {
     }
 
     case "alquiler": {
-      // Nueva UI: categorías "edificio" | "maquinaria" | "otros" (sin montos)
       total = 0;
       const cat = (input as any).categoria as "edificio" | "maquinaria" | "otros";
       if (cat === "edificio") {
@@ -90,7 +98,6 @@ export async function createPedido(input: CreatePedidoInput) {
     }
 
     case "adquisicion": {
-      // La UI no maneja precios → total = 0
       total = 0;
       payload = {
         proposito: (input as any).proposito,
@@ -100,7 +107,6 @@ export async function createPedido(input: CreatePedidoInput) {
     }
 
     case "reparacion": {
-      // Esta UI no tiene montos → total = 0
       total = 0;
       if ((input as any).tipo_reparacion === "maquinaria") {
         payload = {
@@ -119,22 +125,32 @@ export async function createPedido(input: CreatePedidoInput) {
     }
   }
 
-  // Si querés conservar metadatos front (p.ej. 'secretaria') en el backend,
-  // podés incluirlos dentro del payload:
-  // payload._front = { secretaria: input.general.secretaria, ... }
+  // URL real del backend
+  const url = `${API_BASE}/pedidos`;
 
-  const base = process.env.NEXT_PUBLIC_API_BASE;
-  const url = base ? `${base}/pedidos` : `/api/pedidos`;
+  // Token (si existe) para Authorization
+  const token = auth?.token ?? undefined;
 
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json; charset=utf-8" },
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      ...authHeaders(token),
+    },
     cache: "no-store",
     body: JSON.stringify({
       id_tramite,
       modulo: input.modulo,
       total,
-      payload,
+      // Enviamos secretaria arriba si el backend la espera allí (y también como metadato)
+      secretaria: secretariaSafe,
+      payload: {
+        ...payload,
+        _front: {
+          ...(payload?._front ?? {}),
+          secretaria: secretariaSafe,
+        },
+      },
     }),
   });
 

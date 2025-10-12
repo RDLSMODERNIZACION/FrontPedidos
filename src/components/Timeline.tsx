@@ -159,9 +159,7 @@ export default function Timeline({
       </div>
 
       {/* Hint */}
-      <div className="mt-4 text-xs text-[#9aa3b2]">
-        Consejito: pasá el mouse para pausar; en accesibilidad podés desactivar animaciones.
-      </div>
+      
     </section>
   );
 }

@@ -43,6 +43,24 @@ export const API_BASE =
 // =====================
 type HeaderMap = Record<string, string>;
 
+function readTokenFromStorage(): string | undefined {
+  try {
+    // Estructura { token, user, ... } usada por el AuthProvider
+    const raw = localStorage.getItem("auth");
+    if (raw) {
+      const j = JSON.parse(raw);
+      if (typeof j?.token === "string" && j.token.trim()) return j.token;
+    }
+    // Fallbacks comunes
+    const flat = localStorage.getItem("token")
+      ?? localStorage.getItem("access_token")
+      ?? localStorage.getItem("jwt")
+      ?? localStorage.getItem("idToken");
+    if (flat && flat.trim()) return flat;
+  } catch { /* noop */ }
+  return undefined;
+}
+
 /** Construye una URL con query params de forma segura */
 function buildUrl(path: string, params?: Record<string, any>) {
   const url = new URL(path, API_BASE);
@@ -56,9 +74,10 @@ function buildUrl(path: string, params?: Record<string, any>) {
   return url.toString();
 }
 
-/** Headers auth (sin claves undefined) */
+/** Headers auth (lee token automáticamente si no se pasa) */
 export function authHeaders(token?: string): HeaderMap {
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  const t = token ?? readTokenFromStorage();
+  return t ? { Authorization: `Bearer ${t}` } : {};
 }
 
 /** Headers JSON + merge seguro */
@@ -78,6 +97,18 @@ async function ensureOk(res: Response) {
   throw new Error(msg);
 }
 
+/** Helper genérico por si querés reusar */
+export async function http<T>(path: string, init?: RequestInit): Promise<T> {
+  const url = path.startsWith("http") ? path : new URL(path, API_BASE).toString();
+  const res = await fetch(url, {
+    cache: "no-store",
+    ...init,
+    headers: jsonHeaders({ ...authHeaders(), ...(init?.headers as HeaderMap) }),
+  });
+  await ensureOk(res);
+  return (await res.json()) as T;
+}
+
 /* =========================================================
  * Pedidos (listado)
  * ========================================================= */
@@ -86,6 +117,8 @@ async function ensureOk(res: Response) {
  * Obtiene el listado paginado desde /ui/pedidos/list (backend real).
  * Ejemplo:
  *   getPedidos({ limit: 50, q: "escuelas", estado: "enviado", sort: "updated_at_desc" })
+ *
+ * Nota: ya no hace falta pasar token; se lee de localStorage automáticamente.
  */
 export async function getPedidos(
   params?: {
@@ -95,43 +128,31 @@ export async function getPedidos(
     estado?: string;
     sort?: string; // "updated_at_desc" | "created_at_desc" | "total_desc" | etc.
   },
-  token?: string
+  token?: string // sigue soportado; si lo pasás, tiene prioridad
 ) {
   const url = buildUrl("/ui/pedidos/list", params);
-  // ✅ construir headers en una variable tipada evita el union raro en TS
   const headers: HeaderMap = jsonHeaders(authHeaders(token));
-
-  const res = await fetch(url, {
-    cache: "no-store",
-    headers,
-  });
+  const res = await fetch(url, { cache: "no-store", headers });
   await ensureOk(res);
   return (await res.json()) as Paginated<BackendPedido>;
 }
 
 /* =========================================================
  * (Opcional) Detalle y opciones — útiles para futuras pantallas
- * Descomentá si los necesitás en el front.
  * ========================================================= */
 
 // export type BackendPedidoDetalle = Record<string, any>;
 
 // export async function getPedidoDetalle(pedidoId: number, token?: string) {
-//   const url = buildUrl(`/ui/pedidos/${pedidoId}`);
-//   const headers: HeaderMap = jsonHeaders(authHeaders(token));
-//   const res = await fetch(url, { cache: "no-store", headers });
-//   await ensureOk(res);
-//   return (await res.json()) as BackendPedidoDetalle;
+//   return await http<BackendPedidoDetalle>(`/ui/pedidos/${pedidoId}`, {
+//     headers: authHeaders(token),
+//   });
 // }
 
 // export async function getPedidosOptions(token?: string) {
-//   const url = buildUrl("/ui/pedidos/options");
-//   const headers: HeaderMap = jsonHeaders(authHeaders(token));
-//   const res = await fetch(url, { cache: "no-store", headers });
-//   await ensureOk(res);
-//   return await res.json() as {
+//   return await http<{
 //     estados: string[];
 //     secretarias: { id: number; nombre: string }[];
 //     ambitos: string[];
-//   };
+//   }>(`/ui/pedidos/options`, { headers: authHeaders(token) });
 // }

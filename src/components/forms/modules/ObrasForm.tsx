@@ -8,6 +8,11 @@ import { listObras, createObra, type ObraCat } from "@/lib/catalog";
 export default function ObrasForm() {
   const { register, setValue, formState: { errors }, watch } = useFormContext();
 
+  // 📌 RHF: aseguramos que el campo programático "anexo1_pdf" esté registrado
+  useEffect(() => {
+    register("anexo1_pdf");
+  }, [register]);
+
   const [obras, setObras] = useState<ObraCat[]>([]);
   const [loading, setLoading] = useState(true);
   const [addMode, setAddMode] = useState(false);
@@ -24,7 +29,10 @@ export default function ObrasForm() {
       try {
         setLoading(true);
         const data = await listObras();
-        if (alive) setObras(data);
+        if (alive) {
+          const sorted = [...data].sort((a, b) => (a?.nombre ?? "").localeCompare(b?.nombre ?? ""));
+          setObras(sorted);
+        }
       } catch (e) {
         console.error("No se pudieron cargar obras", e);
         if (alive) setObras([]);
@@ -134,8 +142,7 @@ export default function ObrasForm() {
           ) : (
             obras.map((o) => (
               <option key={o.id ?? o.nombre} value={o.id ?? ""}>
-                {o.nombre}
-                {o.ubicacion ? ` — ${o.ubicacion}` : ""}
+                {o.nombre}{o.ubicacion ? ` — ${o.ubicacion}` : ""}
               </option>
             ))
           )}
@@ -189,27 +196,48 @@ export default function ObrasForm() {
         </div>
       )}
 
-      {/* Anexo 1 (PDF) */}
+      {/* Anexo 1 (PDF) — layout con aire y nombre con wrap */}
       <div className="grid gap-1 text-[#9aa3b2]">
-        <span>Anexo 1 (PDF) — <span className="text-[#cfd6e6]">obligatorio al enviar</span></span>
-        <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/pdf,.pdf"
-            className="file:mr-3 file:btn file:px-3 file:py-1 file:rounded-xl file:border-0 file:bg-brand file:text-white bg-panel2 border border-[#27314a] rounded-xl px-3 py-2 w-full sm:w-auto"
-            onChange={onPickPdf}
-          />
-          {fileName && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-[#cfd6e6]">Seleccionado: <b>{fileName}</b></span>
-              <button type="button" className="btn-ghost" onClick={onClearPdf}>
+        <span>
+          Anexo 1 (PDF) — <span className="text-[#cfd6e6]">obligatorio al enviar</span>
+        </span>
+
+        <div className="rounded-xl border border-[#27314a] bg-[#0d1220] p-3">
+          <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
+            {/* Botón seleccionar */}
+            <label className="btn w-max">
+              Seleccionar archivo
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                className="sr-only"
+                onChange={onPickPdf}
+              />
+            </label>
+
+            {/* Nombre del archivo con wrap y espacio flexible */}
+            <div
+              className="text-sm text-[#cfd6e6] md:flex-1 min-w-0 whitespace-normal break-words"
+              title={fileName ?? "Ningún archivo seleccionado"}
+            >
+              {fileName ? (
+                <>Seleccionado: <b>{fileName}</b></>
+              ) : (
+                "Ningún archivo seleccionado"
+              )}
+            </div>
+
+            {/* Quitar a la derecha en desktop / abajo en mobile */}
+            {fileName && (
+              <button type="button" className="btn-ghost md:self-auto self-end" onClick={onClearPdf}>
                 Quitar
               </button>
-            </div>
-          )}
+            )}
+          </div>
+
+          {fileWarn && <small className="block mt-2 text-amber-300">{fileWarn}</small>}
         </div>
-        {fileWarn && <small className="text-amber-300">{fileWarn}</small>}
       </div>
     </div>
   );

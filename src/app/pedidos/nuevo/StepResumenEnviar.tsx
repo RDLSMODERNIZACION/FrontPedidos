@@ -1,6 +1,6 @@
 // src/app/pedidos/nuevo/StepResumenEnviar.tsx
 'use client';
-import React, { Dispatch, SetStateAction, useMemo } from "react";
+import React, { Dispatch, SetStateAction, useMemo, useState } from "react";
 import { CheckCircle2, AlertTriangle, FileText, Calendar, DollarSign } from "lucide-react";
 import { KV, Pill, Section, ProgressBar } from "./UI";
 import { fmtMoney, fmtDate } from "@/lib/utils";
@@ -34,7 +34,7 @@ export default function StepResumenEnviar({
   const itemsAdq = draft?.payload?.items ?? [];
   const hasItemsAdq = Array.isArray(itemsAdq) && itemsAdq.length > 0;
 
-  // Mensajes útiles si no se puede enviar aún
+  // Requisitos faltantes para tooltip
   const requisitosFaltantes = useMemo(() => {
     const faltan: string[] = [];
     if (amb === "obra" && !anexoObraOk) faltan.push("Adjuntar Anexo 1 (PDF) para Obra");
@@ -48,6 +48,20 @@ export default function StepResumenEnviar({
       : !canSend
         ? "Faltan completar requisitos antes de enviar"
         : "";
+
+  // ── Presupuesto único (selección local + validación antes de enviar)
+  const [p1, setP1] = useState<File | null>(null);
+  const [budgetErr, setBudgetErr] = useState<string | null>(null);
+
+  function onEnviarConValidacion() {
+    if (!p1) {
+      setBudgetErr("Adjuntá el presupuesto (PDF) antes de enviar.");
+      document.getElementById("card-presupuesto")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    setBudgetErr(null);
+    handleEnviar();
+  }
 
   return (
     <div className="grid gap-4">
@@ -75,11 +89,8 @@ export default function StepResumenEnviar({
           <Pill><strong>Módulo:</strong>&nbsp;{modSel}</Pill>
           {amb === "obra" && (
             <Pill tone={anexoObraOk ? "ok" : "warn"}>
-              {anexoObraOk ? (
-                <> <CheckCircle2 size={14} className="inline mr-1" /> Anexo 1 </>
-              ) : (
-                <> <AlertTriangle size={14} className="inline mr-1" /> Anexo 1 pendiente </>
-              )}
+              {anexoObraOk ? (<><CheckCircle2 size={14} className="inline mr-1" /> Anexo 1</>)
+                           : (<><AlertTriangle size={14} className="inline mr-1" /> Anexo 1 pendiente</>)}
             </Pill>
           )}
           {modSel === "adquisicion" && (
@@ -90,26 +101,12 @@ export default function StepResumenEnviar({
         </div>
       </section>
 
-      {/* Ayuda cuando no se puede enviar */}
-      {!sending && !canSend && requisitosFaltantes.length > 0 && (
-        <div className="rounded-2xl border border-amber-600 bg-amber-900/20 p-3 text-amber-100 text-sm">
-          <div className="font-medium mb-1">Para poder enviar, completá:</div>
-          <ul className="list-disc pl-5 space-y-1">
-            {requisitosFaltantes.map((t, i) => <li key={i}>{t}</li>)}
-          </ul>
-        </div>
-      )}
-
-      {/* Dos columnas: Generales + Ambito / Módulo */}
+      {/* Dos columnas: Generales + Ámbito (fila 1) y Módulo + Presupuesto (fila 2) */}
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Generales */}
         <Section
           title="Generales"
-          right={
-            <button className="btn-ghost" onClick={onBackGeneral} title="Editar generales" disabled={sending}>
-              Editar
-            </button>
-          }
+          right={<button className="btn-ghost" onClick={onBackGeneral} title="Editar generales" disabled={sending}>Editar</button>}
         >
           <KV label="Fecha del pedido" value={<><Calendar size={14} className="inline mr-1" /> {fmtDate(g.fecha_pedido)}</>} />
           <KV label="Desde / Hasta" value={`${fmtDate(g.fecha_desde)} · ${fmtDate(g.fecha_hasta)}`} />
@@ -120,11 +117,7 @@ export default function StepResumenEnviar({
         {/* Ámbito */}
         <Section
           title="Ámbito"
-          right={
-            <button className="btn-ghost" onClick={onBackAmbito} title="Editar ámbito" disabled={sending}>
-              Editar
-            </button>
-          }
+          right={<button className="btn-ghost" onClick={onBackAmbito} title="Editar ámbito" disabled={sending}>Editar</button>}
         >
           {amb === "ninguno" && <div className="text-sm text-[#9aa3b2]">Sin datos adicionales.</div>}
           {amb === "mantenimientodeescuelas" && (
@@ -139,11 +132,9 @@ export default function StepResumenEnviar({
               <KV label="Nombre de la obra" value={summary?.especiales?.obra?.obra_nombre ?? "—"} />
               <KV
                 label="Anexo 1 (PDF)"
-                value={
-                  anexoObraOk
-                    ? <span className="text-emerald-300 flex items-center gap-1"><CheckCircle2 size={14}/> OK</span>
-                    : <span className="text-amber-300 flex items-center gap-1"><AlertTriangle size={14}/> Pendiente</span>
-                }
+                value={anexoObraOk
+                  ? <span className="text-emerald-300 flex items-center gap-1"><CheckCircle2 size={14}/> OK</span>
+                  : <span className="text-amber-300 flex items-center gap-1"><AlertTriangle size={14}/> Pendiente</span>}
               />
             </>
           )}
@@ -152,11 +143,7 @@ export default function StepResumenEnviar({
         {/* Módulo */}
         <Section
           title={`Módulo: ${modSel}`}
-          right={
-            <button className="btn-ghost" onClick={onBackModulo} title="Editar módulo" disabled={sending}>
-              Editar
-            </button>
-          }
+          right={<button className="btn-ghost" onClick={onBackModulo} title="Editar módulo" disabled={sending}>Editar</button>}
         >
           {modSel === "servicios" && (
             <>
@@ -248,9 +235,41 @@ export default function StepResumenEnviar({
             </>
           )}
         </Section>
+
+        {/* 👉 Presupuesto al costado derecho del módulo */}
+        <section id="card-presupuesto" className="card grid gap-3 p-4 h-fit">
+          <h4 className="text-base font-semibold">Adjuntar presupuesto (PDF)</h4>
+
+          <label className="grid gap-1">
+            <span className="text-sm text-[#9aa3b2]">
+              Presupuesto <b className="text-rose-300">*</b>
+            </span>
+            <input
+              type="file"
+              accept="application/pdf,.pdf"
+              className="rounded-xl border border-[#27314a] bg-black/30 px-3 py-2"
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                setP1(f);
+                // Guarda temporalmente para que StepFinalizar lo suba con el pedido_id
+                if (typeof window !== "undefined") {
+                  (window as any).__pending_budget_file = f;
+                }
+              }}
+              disabled={sending}
+            />
+            {p1 && <small className="text-[#9aa3b2]">Seleccionado: {p1.name}</small>}
+          </label>
+
+          {budgetErr && (
+            <div className="rounded-xl border border-amber-600 bg-amber-900/30 p-2 text-amber-200 text-sm">
+              {budgetErr}
+            </div>
+          )}
+        </section>
       </div>
 
-      {/* JSON alternativo (NO se fuerza al enviar) */}
+      {/* JSON alternativo (opcional) */}
       {showJson && !sending && (
         <section className="card">
           <pre className="text-xs bg-[#0b1020] p-3 rounded-2xl overflow-auto">
@@ -275,7 +294,7 @@ export default function StepResumenEnviar({
                 <button
                   className="btn"
                   disabled={!canSend || sending}
-                  onClick={handleEnviar}
+                  onClick={onEnviarConValidacion}
                   title={enviarDisabledTitle}
                 >
                   Enviar

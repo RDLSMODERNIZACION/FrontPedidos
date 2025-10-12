@@ -54,7 +54,8 @@ function ReviewBadge({ st }: { st?: string }) {
 }
 
 export default function Page() {
-  const { auth } = useAuth();
+  // ⬇️ del AuthProvider actual: { isAuthenticated, token, user, ... }
+  const { isAuthenticated, token, user } = useAuth();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selected, setSelected] = useState<BackendPedido | null>(null);
@@ -62,13 +63,13 @@ export default function Page() {
 
   // Prefijar secretaría SOLO para usuarios "comunes".
   useEffect(() => {
-    const u = auth?.user;
+    const u = user;
     const esAmplio = isEconomiaAdmin(u) || isAreaCompras(u) || isSecretariaCompras(u);
     if (!esAmplio && u?.secretaria && !filtros.secretaria) {
       setFiltros(f => ({ ...f, secretaria: u.secretaria! }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth]);
+  }, [user?.secretaria]);
 
   // Data real desde backend
   const [items, setItems] = useState<BackendPedido[]>([]);
@@ -76,23 +77,28 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
+  // Cargar listado cuando haya sesión lista o cambien filtros (sin SSR)
   useEffect(() => {
+    if (!isAuthenticated) return; // evita 401 si todavía no hay token
     setLoading(true);
-    getPedidos({
-      limit: 200,
-      offset: 0,
-      q: filtros.q || undefined,
-      estado: filtros.estado || undefined,
-      sort: "updated_at_desc",
-    })
+    setErr(null);
+    getPedidos(
+      {
+        limit: 200,
+        offset: 0,
+        q: filtros.q || undefined,
+        estado: filtros.estado || undefined,
+        sort: "updated_at_desc",
+      },
+      token // ⬅️ opcional: si lo pasás, tiene prioridad; si no, se lee de localStorage
+    )
       .then((r) => {
         setItems(r.items ?? []);
         setCount(r.count ?? 0);
-        setErr(null);
       })
-      .catch((e) => setErr(e.message || "Error"))
+      .catch((e) => setErr(e?.message || "Error"))
       .finally(() => setLoading(false));
-  }, [filtros.q, filtros.estado]);
+  }, [isAuthenticated, token, filtros.q, filtros.estado]);
 
   // Filtro UI + permisos
   const filtered = useMemo(() => {
@@ -104,14 +110,14 @@ export default function Page() {
       rows = rows.filter(r => {
         const s = (r.id_tramite ?? `#${r.id}`)
           + (r.modulo ?? r.tipo_ambito ?? "")
-          + r.secretaria
+          + (r.secretaria ?? "")
           + (r.solicitante ?? "");
         return s.toLowerCase().includes(q);
       });
     }
-    rows = rows.filter(r => canView(auth?.user, r));
+    rows = rows.filter(r => canView(user, r));
     return rows;
-  }, [items, filtros, auth]);
+  }, [items, filtros, user]);
 
   const kpis = useMemo(() => ({
     total: filtered.length,
@@ -123,7 +129,7 @@ export default function Page() {
   const [actionBusy, setActionBusy] = useState(false);
 
   // flag: falta secretaria en sesión
-  const faltaSecretariaHdr = !auth?.user?.secretaria;
+  const faltaSecretariaHdr = !user?.secretaria;
 
   // ---------- Tabs ----------
   const [activeTab, setActiveTab] = useState<TabKey>("info");
@@ -139,7 +145,7 @@ export default function Page() {
       setDetalleLoading(true);
       setDetalleErr(null);
       const res = await fetch(`${API_BASE}/ui/pedidos/${p.id}`, {
-        headers: { ...authHeaders(auth?.token) },
+        headers: { ...authHeaders(token) },
         cache: "no-store",
       });
       if (!res.ok) throw new Error(await res.text().catch(()=>"Detalle no disponible"));
@@ -211,7 +217,7 @@ export default function Page() {
 
   // permisos / estados admin
   const isTerminal = selected?.estado === "aprobado" || selected?.estado === "rechazado" || selected?.estado === "cerrado";
-  const canAct = !faltaSecretariaHdr && !!selected && canModerate(auth?.user, selected) && !isTerminal;
+  const canAct = !faltaSecretariaHdr && !!selected && canModerate(user, selected) && !isTerminal;
 
   // ------- Upload helpers (Expedientes) -------
   async function uploadTipoDoc(pedidoId: number, tipoDoc: "expediente_1" | "expediente_2", file: File) {
@@ -222,7 +228,7 @@ export default function Page() {
     fd.append("archivo", file, file.name);
     const res = await fetch(`${API_BASE}/pedidos/${pedidoId}/archivos`, {
       method: "POST",
-      headers: { ...authHeaders(auth?.token) }, // NO setear Content-Type
+      headers: { ...authHeaders(token) }, // NO setear Content-Type
       body: fd,
     });
     if (!res.ok) {
@@ -243,7 +249,7 @@ export default function Page() {
 
   async function refreshEstadoPedido(pId: number) {
     const res = await fetch(`${API_BASE}/ui/pedidos/${pId}`, {
-      headers: { ...authHeaders(auth?.token) },
+      headers: { ...authHeaders(token) },
       cache: "no-store",
     });
     if (res.ok) {
@@ -323,10 +329,10 @@ export default function Page() {
             </label>
 
             <div className="ml-auto flex gap-2">
-              {auth?.user?.secretaria && (
+              {user?.secretaria && (
                 <button
                   className="btn-ghost"
-                  onClick={() => setFiltros(f => ({ ...f, secretaria: auth.user.secretaria! }))}
+                  onClick={() => setFiltros(f => ({ ...f, secretaria: user.secretaria! }))}
                   title="Usar mi secretaría"
                 >
                   Mi secretaría
@@ -383,7 +389,7 @@ export default function Page() {
                   {cap(selected.estado.replace("_"," "))}
                 </Badge>
                 <Badge>{selected.solicitante ?? "—"}</Badge>
-                <Badge>{selected.secretaria}</Badge>
+                <Badge>{selected.secretaria ?? "—"}</Badge>
                 {/* Indicador si ya hay PDF formal */}
                 {loadingArchivos ? (
                   <Badge>Archivos…</Badge>
@@ -503,7 +509,7 @@ export default function Page() {
 
               {activeTab === "admin" && (
                 <section className="card grid gap-4">
-                  {!auth?.user?.secretaria && (
+                  {!user?.secretaria && (
                     <div className="text-yellow-400 text-sm">
                       Para aprobar / revisar necesitás tener una <b>Secretaría</b> en tu usuario.
                     </div>
@@ -519,9 +525,9 @@ export default function Page() {
                       try {
                         setActionBusy(true);
                         await setEstadoPedido(selected.id, "aprobado", {
-                          token: auth?.token,
-                          user: auth?.user?.username,
-                          secretaria: auth?.user?.secretaria ?? undefined,
+                          token,
+                          user: user?.username,
+                          secretaria: user?.secretaria ?? undefined,
                         });
                         setSelected(s => (s ? { ...s, estado: "aprobado" } : s));
                         setItems(arr => arr.map(r => r.id === selected.id ? { ...r, estado: "aprobado" } : r));
@@ -535,9 +541,9 @@ export default function Page() {
                       try {
                         setActionBusy(true);
                         await setEstadoPedido(selected.id, "en_revision", {
-                          token: auth?.token,
-                          user: auth?.user?.username,
-                          secretaria: auth?.user?.secretaria ?? undefined,
+                          token,
+                          user: user?.username,
+                          secretaria: user?.secretaria ?? undefined,
                         });
                         setSelected(s => (s ? { ...s, estado: "en_revision" } : s));
                         setItems(arr => arr.map(r => r.id === selected.id ? { ...r, estado: "en_revision" } : r));
@@ -550,9 +556,9 @@ export default function Page() {
                       try {
                         setActionBusy(true);
                         await setEstadoPedido(selected.id, "rechazado", {
-                          token: auth?.token,
-                          user: auth?.user?.username,
-                          secretaria: auth?.user?.secretaria ?? undefined,
+                          token,
+                          user: user?.username,
+                          secretaria: user?.secretaria ?? undefined,
                           motivo: motivo ?? null,
                         });
                         setSelected(s => (s ? { ...s, estado: "rechazado" } : s));

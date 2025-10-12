@@ -1,7 +1,7 @@
 // src/app/pedidos/nuevo/NuevoWizard.tsx
 'use client';
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import { Stepper } from "./UI";
 import StepGeneral from "./StepGeneral";
@@ -12,20 +12,38 @@ import StepFinalizar from "./StepFinalizar";
 import { useWizard } from "./useWizard";
 import { PREVIEW_MODE } from "./constants";
 
-export default function NuevoPedidoWizard() {
+type Props = { secretariaDefault?: string };
+
+export default function NuevoPedidoWizard({ secretariaDefault }: Props) {
   const W = useWizard();
 
-  // ===== Resumen: canSend derivado del summary y los forms
+  // toma de user si no viene por prop
+  const secretaria = useMemo(() => {
+    const fromUser =
+      (W.auth as any)?.user?.secretaria ??
+      (W.auth as any)?.user?.department ??
+      (W.auth as any)?.user?.departamento ??
+      null;
+    return secretariaDefault ?? fromUser ?? null;
+  }, [W.auth, secretariaDefault]);
+
+  // inyectar al form "general" si falta
+  useEffect(() => {
+    if (!W?.generalForm?.getValues || !W?.generalForm?.setValue) return;
+    const current = W.generalForm.getValues("secretaria");
+    if (secretaria && (!current || String(current).trim() === "")) {
+      W.generalForm.setValue("secretaria", secretaria, { shouldDirty: false, shouldTouch: false });
+    }
+  }, [secretaria, W.generalForm]);
+
   const canSend = useMemo(() => {
     const draft = W.summary?.modulo_draft ?? {};
     const itemsAdq = draft?.payload?.items ?? [];
     const hasItemsAdq = Array.isArray(itemsAdq) && itemsAdq.length > 0;
-
     const amb = W.summary?.ambitoIncluido ?? "ninguno";
-    const anexoObraOk =
-      amb === "obra"
-        ? Boolean((W.obrasForm.getValues?.() as any)?.anexo1_pdf?.[0])
-        : true;
+    const anexoObraOk = amb === "obra"
+      ? Boolean((W.obrasForm.getValues?.() as any)?.anexo1_pdf?.[0])
+      : true;
 
     return (
       !!W.summary?.modulo_seleccionado &&
@@ -45,6 +63,8 @@ export default function NuevoPedidoWizard() {
             auth={W.auth}
             previewMode={PREVIEW_MODE}
             onNext={() => W.setStep(2)}
+            // 👇 pasar default explícito al Step
+            secretariaDefault={secretaria ?? undefined}
           />
         )}
 
@@ -86,7 +106,7 @@ export default function NuevoPedidoWizard() {
             summary={W.summary}
             obrasForm={W.obrasForm}
             showJson={W.showJson}
-            setShowJson={W.setShowJson}          // ✅ pasar setter directo (fix tipos)
+            setShowJson={W.setShowJson}
             sending={W.sending}
             canSend={canSend}
             progress={W.progress}

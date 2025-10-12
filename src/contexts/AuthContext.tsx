@@ -1,102 +1,108 @@
-'use client';
+// src/contexts/AuthContext.tsx
+"use client";
 
-import { createContext, useContext, useEffect, useState } from 'react';
-import {
-  saveAuth,
-  loadAuth,
-  clearAuth,
-  type AuthState as StoreAuthState,
-} from '@/lib/auth';
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { clearAuth, loadAuth, saveAuth, type AuthState } from "@/lib/auth";
 
 type Ctx = {
-  auth: StoreAuthState | null;
-  signin: (username: string, password: string) => Promise<void>;
-  signout: () => void;
+  isAuthenticated: boolean;
+  token: string | null;
+  user: any | null;
+  login: (data: { token: string; user?: any | null; expiresAt?: number | null }) => Promise<void>;
+  logout: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 };
 
-const AuthCtx = createContext<Ctx | null>(null);
+const AuthCtx = createContext<Ctx | undefined>(undefined);
 
-// Helpers de entorno
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
-const LOGIN_PATH = process.env.NEXT_PUBLIC_LOGIN_PATH || "/auth/login";
-const DEFAULT_SECRETARIA =
-  process.env.NEXT_PUBLIC_DEFAULT_SECRETARIA || "SECRETARÍA DE ECONOMÍA";
-const FAKE_LOGIN =
-  process.env.NEXT_PUBLIC_FAKE_LOGIN === "true" || !API_BASE; // fallback si no hay backend
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "https://backpedidos-gby7.onrender.com";
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [auth, setAuth] = useState<StoreAuthState | null>(null);
-
-  // Cargar sesión previa
-  useEffect(() => {
-    const s = loadAuth();
-    if (s) setAuth(s);
-  }, []);
-
-  async function signin(username: string, password: string) {
-    // ---------- Fallback local (como te funcionaba antes) ----------
-    if (FAKE_LOGIN) {
-      const normalized: StoreAuthState = {
-        token: `local-${Date.now()}`,
-        user: {
-          username,
-          secretaria: DEFAULT_SECRETARIA,   // <- configurable por env
-          // secretaria_id opcional si luego la necesitás
-        },
-      };
-      saveAuth(normalized);
-      setAuth(normalized);
-      return;
-    }
-
-    // ---------- Login contra backend real ----------
-    const url = `${API_BASE}${LOGIN_PATH}`; // ej: https://backend/onrender.com/auth/login
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-      // Si tu backend requiere credenciales/cookies, agrega: credentials: 'include'
+async function fetchProfile(token: string): Promise<any | null> {
+  try {
+    const r = await fetch(`${API_BASE}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
     });
-
-    if (!res.ok) {
-      let msg = 'Credenciales inválidas';
-      try { msg = (await res.json()).detail ?? msg; } catch {}
-      throw new Error(msg);
-    }
-
-    // Adapta este shape a lo que devuelva tu backend
-    const data = await res.json() as {
-      token: string;
-      user: { username: string; secretaria?: string | null; secretaria_id?: number | null };
-    };
-
-    const normalized: StoreAuthState = {
-      token: data.token,
-      user: {
-        username: data.user.username,
-        secretaria: data.user.secretaria ?? DEFAULT_SECRETARIA,
-        secretaria_id: data.user.secretaria_id ?? undefined,
-      },
-    };
-
-    saveAuth(normalized);
-    setAuth(normalized);
+    if (!r.ok) return null;
+    const data = await r.json().catch(() => null);
+    // Soportá distintos formatos (user plano, dentro de {user}, o claims):
+    const user = data?.user ?? data ?? null;
+    return user;
+  } catch {
+    return null;
   }
-
-  function signout() {
-    clearAuth();
-    setAuth(null);
-  }
-
-  return (
-    <AuthCtx.Provider value={{ auth, signin, signout }}>
-      {children}
-    </AuthCtx.Provider>
-  );
 }
 
-export function useAuth() {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<any | null>(null);
+
+  // Hidratar desde localStorage y cargar perfil si hay token
+  useEffect(() => {
+    const loaded = loadAuth();
+    if (loaded?.token) {
+      setToken(loaded.token);
+      setUser(loaded.user ?? null);
+      // si no hay user en storage, intentá traerlo del backend
+      if (!loaded.user) {
+        void (async () => {
+          const u = await fetchProfile(loaded.token!);
+          if (u) {
+            setUser(u);
+            saveAuth({ token: loaded.token!, user: u, expiresAt: null });
+          }
+        })();
+      }
+    }
+  }, []);
+
+  const isAuthenticated = !!token;
+
+  const login: Ctx["login"] = async ({ token, user = null, expiresAt = null }) => {
+    // guardá token primero
+    saveAuth({ token, user, expiresAt });
+    setToken(token);
+    setUser(user);
+
+    // intentá completar perfil si no vino en el login
+    if (!user) {
+      const u = await fetchProfile(token);
+      if (u) {
+        setUser(u);
+        saveAuth({ token, user: u, expiresAt });
+      }
+    }
+
+    window.dispatchEvent(new CustomEvent("auth:changed", { detail: { isAuthenticated: true } }));
+  };
+
+  const refreshProfile = async () => {
+    if (!token) return;
+    const u = await fetchProfile(token);
+    if (u) {
+      setUser(u);
+      saveAuth({ token, user: u, expiresAt: null });
+      window.dispatchEvent(new CustomEvent("auth:changed", { detail: { isAuthenticated: true } }));
+    }
+  };
+
+  const logout: Ctx["logout"] = async () => {
+    clearAuth();
+    setToken(null);
+    setUser(null);
+    window.dispatchEvent(new CustomEvent("auth:changed", { detail: { isAuthenticated: false } }));
+  };
+
+  const value = useMemo<Ctx>(
+    () => ({ isAuthenticated, token, user, login, logout, refreshProfile }),
+    [isAuthenticated, token, user]
+  );
+
+  return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
+}
+
+export function useAuth(): Ctx {
   const ctx = useContext(AuthCtx);
-  if (!ctx) throw new Error('useAuth must be used within <AuthProvider>');
+  if (!ctx) throw new Error("useAuth must be used within <AuthProvider>");
   return ctx;
 }

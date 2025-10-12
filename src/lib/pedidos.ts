@@ -18,7 +18,7 @@ export type UploadAnexoResponse = {
   ok: boolean;
   archivo_id: number;
   bytes: number;
-  path: string; // supabase://bucket/key
+  path: string; // supabase://bucket/key  ó  "pedidos/<id>/archivo.pdf"
 };
 
 export type UiAnexoItem = {
@@ -27,7 +27,17 @@ export type UiAnexoItem = {
   filename: string;
   content_type: string | null;
   size_bytes: number | null;
-  url?: string | null;        // supabase://...
+
+  // Ruta/URL que devuelve el backend. Puede venir como:
+  // - supabase://bucket/object
+  // - object path "pedidos/<id>/file.pdf"
+  // - URL absoluta "https://..."
+  url?: string | null;
+
+  // Algunos backends devuelven estos alternativos:
+  storage_path?: string | null;
+  path?: string | null;
+
   uploaded_at?: string | null;
   download?: string | null;   // /pedidos/archivos/{id}/download (si backend lo agrega)
 
@@ -56,7 +66,7 @@ export type PedidoArchivo = {
   filename: string;
   content_type: string | null;
   size_bytes: number | null;
-  url: string;
+  url: string;                // ver comentario en UiAnexoItem
   uploaded_at: string | null;
   download?: string | null;
 
@@ -65,6 +75,10 @@ export type PedidoArchivo = {
   review_notes?: string | null;
   reviewed_by?: string | null;
   reviewed_at?: string | null;
+
+  // opcionalmente pueden venir también:
+  storage_path?: string | null;
+  path?: string | null;
 };
 
 /* =========================
@@ -87,6 +101,32 @@ async function parseOrThrow<T = any>(res: Response, ctx: string): Promise<T> {
   if (res.ok) return res.json() as Promise<T>;
   const txt = await res.text().catch(() => "");
   throw new Error(`${ctx} -> HTTP ${res.status} ${txt}`);
+}
+
+/* ========= Supabase public helper (para buckets públicos) ========= */
+
+const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+const SUPA_BUCKET = process.env.NEXT_PUBLIC_SUPABASE_BUCKET ?? "";
+
+/** Convierte "pedidos/123/file.pdf" a URL pública de Supabase Storage. */
+export function supaPublicObjectUrl(objectPath: string): string {
+  if (!SUPA_URL || !SUPA_BUCKET) return "";
+  const clean = objectPath.replace(/^\/+/, "");
+  return `${SUPA_URL}/storage/v1/object/public/${encodeURIComponent(SUPA_BUCKET)}/` +
+    clean.split("/").map(encodeURIComponent).join("/");
+}
+
+/** Convierte "supabase://bucket/key" a URL pública (si el bucket coincide o igualmente publicamos). */
+export function supaPublicUrlFromUri(uri: string): string {
+  // supabase://bucket/object/path.pdf
+  const m = /^supabase:\/\/([^/]+)\/(.+)$/.exec(uri);
+  if (!m) return uri;
+  const bucket = m[1];
+  const object = m[2];
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  if (!base) return uri;
+  return `${base}/storage/v1/object/public/${encodeURIComponent(bucket)}/` +
+    object.split("/").map(encodeURIComponent).join("/");
 }
 
 /* =========================
@@ -203,7 +243,7 @@ export async function listPedidoArchivos(pedidoId: number): Promise<PedidoArchiv
     filename: String(i.filename ?? ""),
     content_type: i.content_type ?? null,
     size_bytes: typeof i.size_bytes === "number" ? i.size_bytes : (i.size_bytes ? Number(i.size_bytes) : null),
-    url: String(i.url ?? ""),
+    url: String(i.url ?? i.storage_path ?? i.path ?? ""), // unificamos en 'url'
     uploaded_at: (i.uploaded_at ?? null) as string | null,
     download: i.download ?? null,
 
@@ -211,6 +251,9 @@ export async function listPedidoArchivos(pedidoId: number): Promise<PedidoArchiv
     review_notes: i.review_notes ?? null,
     reviewed_by: i.reviewed_by ?? null,
     reviewed_at: i.reviewed_at ?? null,
+
+    storage_path: i.storage_path ?? null,
+    path: i.path ?? null,
   }));
 }
 
@@ -250,16 +293,68 @@ export function downloadUrl(archivoId: number) {
 }
 
 /* =========================
- * Helpers de URL (compat)
+ * Helpers de URL (compat + supabase)
  * ========================= */
 
-/** fileUrl (compat): si la URL es supabase:// preferí usar el redirect por id */
-export function fileUrl(path: string, archivoId?: number) {
-  if (!path) return "";
-  if (path.startsWith("supabase://")) {
-    return archivoId ? downloadUrl(archivoId) : "";
+/**
+ * fileUrl (sobrecargas):
+ * - fileUrl(item, {pedidoId}) => prioriza descarga por ID en tu backend y si no, URL pública de Supabase.
+ * - fileUrl(path, archivoId?, pedidoId?) => compat histórica.
+ */
+export function fileUrl(
+  item: { url?: string | null; storage_path?: string | null; path?: string | null; id?: number | null },
+  opts?: { pedidoId?: number | null }
+): string;
+export function fileUrl(path: string, archivoId?: number, pedidoId?: number): string;
+export function fileUrl(
+  a: any,
+  b?: any
+): string {
+  // Modo objeto (recomendado)
+  if (typeof a === "object" && a !== null) {
+    const pedidoId: number | null | undefined = b?.pedidoId ?? null;
+
+    // 1) Preferí endpoint por ID en backend (redirige/firma en server)
+    if (pedidoId && a.id) return `${API_BASE}/pedidos/${pedidoId}/archivos/${a.id}`;
+
+    // 2) Supabase: si viene supabase://bucket/key
+    const raw = (a.url ?? a.storage_path ?? a.path ?? "") as string;
+    if (!raw) return "#";
+
+    if (/^supabase:\/\//i.test(raw)) {
+      const pub = supaPublicUrlFromUri(raw);
+      if (pub) return pub;
+    }
+
+    // 3) Supabase object path "pedidos/123/file.pdf"
+    if (!/^https?:\/\//i.test(raw)) {
+      const pub = supaPublicObjectUrl(raw);
+      if (pub) return pub;
+      // si no hay config pública, devolvemos relativo al backend (último recurso)
+      return `${API_BASE}${raw.startsWith("/") ? "" : "/"}${raw}`;
+    }
+
+    // 4) URL absoluta
+    return raw;
   }
-  if (/^https?:\/\//i.test(path)) return path; // ya es absoluta
+
+  // Modo string (compat)
+  const path: string = a ?? "";
+  const archivoId: number | undefined = b;
+  const pedidoId: number | undefined = arguments.length >= 3 ? arguments[2] : undefined;
+
+  if (!path) return "";
+  // Si es referencia a supabase://... y no tenemos id -> usar pública
+  if (path.startsWith("supabase://")) {
+    return archivoId && pedidoId
+      ? `${API_BASE}/pedidos/${pedidoId}/archivos/${archivoId}`
+      : supaPublicUrlFromUri(path);
+  }
+  // Si ya es absoluta
+  if (/^https?:\/\//i.test(path)) return path;
+  // Si tenemos id+pedidoId, mejor usar endpoint por id
+  if (archivoId && pedidoId) return `${API_BASE}/pedidos/${pedidoId}/archivos/${archivoId}`;
+  // Relativa al backend
   return `${API_BASE}${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
