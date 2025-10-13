@@ -1,8 +1,11 @@
 // src/components/pedidos/ArchivoFormalUploader.tsx
 'use client';
-import React, { useEffect, useState } from "react";
-import { uploadPedidoFormalPdf, listPedidoArchivos, type PedidoArchivo, fileUrl } from "@/lib/pedidos";
-import { Upload, FileText, AlertTriangle } from "lucide-react";
+
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Upload, FileText, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import type { PedidoArchivo } from "@/lib/api";
+import { listArchivos, uploadArchivo, fileUrl } from "@/lib/archivos";
 
 type Props = {
   pedidoId: number;
@@ -20,10 +23,17 @@ function formatBytes(bytes: number) {
 }
 
 export default function ArchivoFormalUploader({ pedidoId, estado, onUploaded }: Props) {
+  // Unificación segura de auth/context
+  const authCtx = useAuth() as any;
+  const token: string | undefined = (authCtx?.token ?? authCtx?.auth?.token ?? undefined) as
+    | string
+    | undefined;
+
   const [archivos, setArchivos] = useState<PedidoArchivo[]>([]);
   const [loading, setLoading] = useState(true);
   const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const puedeSubir = estado === "aprobado";
 
@@ -31,8 +41,8 @@ export default function ArchivoFormalUploader({ pedidoId, estado, onUploaded }: 
     setLoading(true);
     setError(null);
     try {
-      const data = await listPedidoArchivos(pedidoId);
-      // si sólo querés mostrar el formal_pdf acá:
+      const data = await listArchivos(pedidoId, token);
+      // mostrar sólo formal_pdf
       setArchivos(data.filter(a => a.kind === "formal_pdf"));
     } catch (e: any) {
       setError(e?.message ?? "Error al cargar archivos");
@@ -43,27 +53,59 @@ export default function ArchivoFormalUploader({ pedidoId, estado, onUploaded }: 
 
   useEffect(() => { void refresh(); }, [pedidoId]);
 
+  const latestFormal = useMemo(() => {
+    const arr = archivos.slice().sort((a, b) => {
+      const ta = a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0;
+      const tb = b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0;
+      return tb - ta || b.id - a.id;
+    });
+    return arr[0];
+  }, [archivos]);
+
   async function handlePick(ev: React.ChangeEvent<HTMLInputElement>) {
     const f = ev.target.files?.[0];
+    ev.target.value = "";
     if (!f) return;
     if (f.type !== "application/pdf") {
       setError("Sólo se acepta PDF");
-      ev.target.value = "";
       return;
     }
     setError(null);
     setSubiendo(true);
     try {
-      await uploadPedidoFormalPdf(pedidoId, f);
+      await uploadArchivo(pedidoId, "formal_pdf", f, token);
       await refresh();
       onUploaded?.();
     } catch (e: any) {
-      setError(e?.message ?? "Error al subir PDF");
+      const msg = String(e?.message || "Error al subir PDF");
+      const isMixed =
+        typeof window !== "undefined" &&
+        window.location.protocol === "https:" &&
+        String(process.env.NEXT_PUBLIC_API_BASE || "").startsWith("http://");
+      setError(isMixed ? "No se pudo subir (Mixed Content). Configurá NEXT_PUBLIC_API_BASE con HTTPS." : msg);
     } finally {
       setSubiendo(false);
-      ev.target.value = "";
     }
   }
+
+  const statusBadge = (a?: PedidoArchivo) => {
+    if (!a) return <span className="text-[#9aa3b2] text-sm">Sin archivo</span>;
+    if (a.review_status === "aprobado") {
+      return (
+        <span className="text-emerald-300 text-sm flex items-center gap-1">
+          <CheckCircle2 size={14} /> Aprobado
+        </span>
+      );
+    }
+    if (a.review_status === "observado") {
+      return (
+        <span className="text-amber-300 text-sm flex items-center gap-1">
+          <AlertTriangle size={14} /> Observado
+        </span>
+      );
+    }
+    return <span className="text-[#9aa3b2] text-sm">Pendiente de revisión</span>;
+  };
 
   return (
     <div className="grid gap-3">
@@ -73,6 +115,7 @@ export default function ArchivoFormalUploader({ pedidoId, estado, onUploaded }: 
           <Upload size={16} className="mr-1 inline" />
           {subiendo ? "Subiendo..." : "Subir PDF firmado"}
           <input
+            ref={fileInputRef}
             type="file"
             accept="application/pdf"
             className="hidden"
@@ -101,18 +144,18 @@ export default function ArchivoFormalUploader({ pedidoId, estado, onUploaded }: 
                   <FileText size={16} />
                   <div className="text-sm">
                     {a.url ? (
-                      <a className="link" href={fileUrl(a.url)} target="_blank" rel="noreferrer">
+                      <a className="link" href={fileUrl(a.url, a.id)} target="_blank" rel="noreferrer">
                         {a.filename || "formal.pdf"}
                       </a>
                     ) : (
                       <span>{a.filename || "formal.pdf"}</span>
                     )}
-                    {/* size_bytes puede ser null → render condicional */}
                     {a.size_bytes != null && (
                       <span className="text-[#9aa3b2] ml-2 text-xs">
                         ({formatBytes(a.size_bytes)})
                       </span>
                     )}
+                    <div className="mt-1">{statusBadge(a)}</div>
                   </div>
                 </div>
                 <div className="text-xs text-[#9aa3b2]">
