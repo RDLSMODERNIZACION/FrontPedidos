@@ -7,12 +7,20 @@ import { useAuth } from "@/contexts/AuthContext";
 import { loadAuth } from "@/lib/auth";
 
 export default function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { auth } = useAuth();
+  const authCtx = useAuth() as any;
+  // Unificación segura: admite {auth:{token}} o {token}
+  const ctxToken: string | undefined = (authCtx?.auth?.token ?? authCtx?.token ?? undefined) as
+    | string
+    | undefined;
+
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [lsAuth, setLsAuth] = useState(loadAuth());
 
+  // Marcamos montado en cliente
   useEffect(() => { setMounted(true); }, []);
+
+  // Sincroniza con cambios de storage / evento custom
   useEffect(() => {
     const refresh = () => setLsAuth(loadAuth());
     window.addEventListener("storage", refresh);
@@ -23,14 +31,15 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
     };
   }, []);
 
+  // Redirección si no hay sesión
   useEffect(() => {
     if (!mounted) return;
-    const hasSession = Boolean(auth?.token || lsAuth?.token);
+    const hasSession = Boolean(ctxToken || lsAuth?.token);
     if (!hasSession) router.replace("/login");
-  }, [mounted, auth?.token, lsAuth?.token, router]);
+  }, [mounted, ctxToken, lsAuth?.token, router]);
 
-  const hasSession = Boolean(auth?.token || lsAuth?.token);
-  if (!mounted || !hasSession) return null; // sin parpadeo
+  const hasSession = Boolean(ctxToken || lsAuth?.token);
+  if (!mounted || !hasSession) return null; // evita parpadeo
 
   return <>{children}</>;
 }
