@@ -25,7 +25,9 @@ import { PREVIEW_MODE, DELAY_MS } from "./constants";
  * Arma SIEMPRE el payload v2 que espera el backend (y compat legacy).
  */
 export function useWizard() {
-  const { auth } = useAuth();
+  // Unificación de contexto de auth (soporta {auth:{user,token}} o {user,token})
+  const ctx = useAuth() as any;
+  const auth = ctx?.auth ?? ctx;
 
   const [step, setStep] = useState<Step>(1);
 
