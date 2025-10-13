@@ -4,9 +4,21 @@
 import React, { useEffect, useRef } from "react";
 import { useFormContext, useFieldArray } from "react-hook-form";
 
-type Item = { descripcion: string; cantidad: number; unidad?: string; observaciones?: string };
+type Item = {
+  descripcion: string;
+  cantidad: number;
+  unidad?: string;
+  observaciones?: string;
+};
 
-export default function AdquisicionForm() {
+type AdqChoice = "uno" | "muchos";
+
+type Props = {
+  /** Si viene, fija el modo de adquisición y evita cambios externos */
+  lockedChoice?: AdqChoice;
+};
+
+export default function AdquisicionForm({ lockedChoice }: Props) {
   const {
     control,
     register,
@@ -20,10 +32,22 @@ export default function AdquisicionForm() {
     name: "items",
   });
 
-  // ✅ Fila por defecto
+  // ========= Modo de adquisición =========
+  const modoActual: string | undefined = watch("modo_adquisicion");
+
+  // Fijamos el modo si viene bloqueado; si no hay valor aún, por defecto "uno"
+  useEffect(() => {
+    if (lockedChoice) {
+      setValue("modo_adquisicion", lockedChoice, { shouldValidate: true, shouldDirty: true });
+    } else if (!modoActual) {
+      setValue("modo_adquisicion", "uno", { shouldValidate: false });
+    }
+  }, [lockedChoice]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ========= Ítems (detalle) =========
   const newRow = (): Item => ({ descripcion: "", cantidad: 1, unidad: "", observaciones: "" });
 
-  // ✅ Guard para StrictMode (evita doble append en dev)
+  // Guard para StrictMode (evita doble append en dev)
   const initRef = useRef(false);
   useEffect(() => {
     if (initRef.current) return;
@@ -34,8 +58,8 @@ export default function AdquisicionForm() {
     if (!Array.isArray(fields) || fields.length === 0) {
       append(newRow(), { shouldFocus: false });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // ← intencionalmente vacío
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function addRow() {
     append(newRow(), { shouldFocus: true });
@@ -55,7 +79,13 @@ export default function AdquisicionForm() {
 
   return (
     <section className="grid gap-3">
-      <h3 className="text-lg font-semibold text-[#8fd672]">Detalle de ítems</h3>
+      {/* Info del modo (opcional) */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-[#8fd672]">Detalle de ítems</h3>
+        <div className="text-xs text-[#9aa3b2]">
+          Modo: <b>{(lockedChoice ?? modoActual ?? "uno").toString()}</b>
+        </div>
+      </div>
 
       <div className="rounded-2xl border border-[#27314a] overflow-hidden">
         <table className="w-full text-sm">
@@ -142,6 +172,9 @@ export default function AdquisicionForm() {
           Debe haber al menos un ítem. Usá “Quitar” para eliminar filas.
         </span>
       </div>
+
+      {/* Hidden para garantizar que RHF tenga el valor en el submit */}
+      <input type="hidden" {...register("modo_adquisicion")} />
     </section>
   );
 }
