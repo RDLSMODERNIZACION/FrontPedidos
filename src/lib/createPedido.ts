@@ -3,20 +3,83 @@ import type { CreatePedidoInput } from "./schemas";
 import { API_BASE, authHeaders } from "@/lib/api";
 import { loadAuth } from "@/lib/auth";
 
-/** Fecha YYYY-MM-DD (hoy) */
+/** YYYY-MM-DD (hoy) */
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
-/**
- * Creador de pedidos — envía SIEMPRE el payload v2 que espera el backend:
- * {
- *   generales: {...},
- *   ambitoIncluido: "ninguno" | "obra" | "mantenimientodeescuelas",
- *   especiales: { obra_nombre? | escuela? },
- *   modulo_seleccionado: "servicios" | "alquiler" | "adquisicion" | "reparacion",
- *   modulo_draft: { modulo, payload }
- * }
- */
+/* =========================
+ * Helpers
+ * ========================= */
+
+function normalizedToken(): string | undefined {
+  try {
+    const t = loadAuth()?.token;
+    return (t ?? undefined) as string | undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Asegura un valor de ámbito soportado por el backend */
+function normalizeAmbitoTipo(
+  uiTipo?: string | null,
+  amb?: { tipo?: string | null } | null
+): "ninguno" | "obra" | "mantenimientodeescuelas" {
+  let raw = (uiTipo ?? amb?.tipo ?? "ninguno") as string;
+  if (raw === "general") raw = "ninguno";
+  if (raw !== "ninguno" && raw !== "obra" && raw !== "mantenimientodeescuelas") {
+    raw = "ninguno";
+  }
+  return raw as "ninguno" | "obra" | "mantenimientodeescuelas";
+}
+
+/** Duplica claves planas esperadas por backend legacy en `especiales` */
+function withCompatEspeciales(
+  ambitoIncluido: "ninguno" | "obra" | "mantenimientodeescuelas",
+  ambito?: { payload?: Record<string, any> | null } | null,
+  especiales?: Record<string, any> | null
+) {
+  const out: Record<string, any> = { ...(especiales ?? {}) };
+
+  if (ambitoIncluido === "mantenimientodeescuelas") {
+    const escuela =
+      ambito?.payload?.escuela ??
+      out?.mantenimientodeescuelas?.escuela ??
+      out?.escuela;
+    if (escuela) {
+      out.mantenimientodeescuelas = { ...(out.mantenimientodeescuelas ?? {}), escuela };
+      out.escuela = escuela; // plano para persistir en backend actual
+    }
+  }
+
+  if (ambitoIncluido === "obra") {
+    const obra_nombre =
+      ambito?.payload?.obra_nombre ??
+      out?.obra?.obra_nombre ??
+      out?.obra_nombre;
+    if (obra_nombre) {
+      out.obra = { ...(out.obra ?? {}), obra_nombre };
+      out.obra_nombre = obra_nombre; // plano para persistir en backend actual
+    }
+  }
+
+  return out;
+}
+
+/** Si no es ISO (YYYY-MM-DD), la anulamos para no romper DB */
+function coerceISODate(x: any): string | null {
+  if (x == null) return null;
+  const s = String(x).trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+}
+
+/* =========================
+ * Creador de pedidos (payload v2)
+ * ========================= */
+
 export async function createPedido(input: CreatePedidoInput) {
+  const tk = normalizedToken();
+
+  // 1) Generales
   const auth = loadAuth();
   const secretariaSafe: string =
     (input as any)?.secretaria ??
@@ -35,30 +98,21 @@ export async function createPedido(input: CreatePedidoInput) {
   const presupuesto_estimado: number | string | null =
     (input as any)?.presupuesto_estimado ?? null;
 
-  // Ambito v2
-  let ambitoIncluido: "ninguno" | "obra" | "mantenimientodeescuelas" =
-    ((input as any)?.ambitoIncluido as any) ??
-    ((input as any)?.ambito?.tipo as any) ??
-    "ninguno";
-  if (ambitoIncluido === "general") ambitoIncluido = "ninguno";
+  // 2) Ámbito normalizado
+  const ambitoIncluido = normalizeAmbitoTipo(
+    (input as any)?.ambitoIncluido,
+    (input as any)?.ambito ?? null
+  );
 
-  // especiales (solo cuando aplica)
-  let especiales: Record<string, any> | undefined = undefined;
-  if (ambitoIncluido === "obra") {
-    const obra_nombre =
-      (input as any)?.obra_nombre ??
-      (input as any)?.nombre_obra ??
-      (input as any)?.ambito?.obra?.obra_nombre ??
-      null;
-    if (obra_nombre) especiales = { obra_nombre };
-  } else if (ambitoIncluido === "mantenimientodeescuelas") {
-    const escuela =
-      (input as any)?.escuela ??
-      (input as any)?.ambito?.escuelas?.escuela ??
-      null;
-    if (escuela) especiales = { escuela };
-  }
+  const ambito =
+    ambitoIncluido === "ninguno"
+      ? undefined
+      : {
+          tipo: ambitoIncluido,
+          payload: (input as any)?.ambito?.payload ?? undefined,
+        };
 
+  // 3) Módulo (draft)
   const modulo = (input as any).modulo as
     | "servicios"
     | "alquiler"
@@ -68,12 +122,15 @@ export async function createPedido(input: CreatePedidoInput) {
   let payload: Record<string, any> = {};
   switch (modulo) {
     case "servicios": {
-      const tipo = (input as any).tipo_servicio as "mantenimiento" | "profesionales" | "otros";
+      const tipo = (input as any).tipo_servicio as
+        | "mantenimiento"
+        | "profesionales"
+        | "otros";
       if (tipo === "profesionales") {
         payload = {
           tipo_profesional: (input as any).tipo_profesional ?? null,
-          dia_desde: (input as any).dia_desde ?? null,
-          dia_hasta: (input as any).dia_hasta ?? null,
+          dia_desde: coerceISODate((input as any).dia_desde),
+          dia_hasta: coerceISODate((input as any).dia_hasta),
         };
       } else {
         const detalle =
@@ -102,8 +159,8 @@ export async function createPedido(input: CreatePedidoInput) {
           tipo_maquinaria: (input as any).tipo_maquinaria ?? null,
           requiere_combustible: !!(input as any).requiere_combustible,
           requiere_chofer: !!(input as any).requiere_chofer,
-          cronograma_desde: (input as any).cronograma_desde ?? null,
-          cronograma_hasta: (input as any).cronograma_hasta ?? null,
+          cronograma_desde: coerceISODate((input as any).cronograma_desde),
+          cronograma_hasta: coerceISODate((input as any).cronograma_hasta),
           horas_por_dia: Number((input as any).horas_por_dia) || 0,
         };
       } else {
@@ -116,12 +173,15 @@ export async function createPedido(input: CreatePedidoInput) {
       break;
     }
     case "adquisicion": {
-      const itemsRaw: any[] = Array.isArray((input as any).items) ? (input as any).items : [];
+      const itemsRaw: any[] = Array.isArray((input as any).items)
+        ? (input as any).items
+        : [];
       const items = itemsRaw.map((it) => ({
         descripcion: it.descripcion,
         cantidad: Number(it.cantidad ?? 1),
         unidad: it.unidad ?? null,
-        precio_unitario: it.precio_unitario != null ? Number(it.precio_unitario) : null,
+        precio_unitario:
+          it.precio_unitario != null ? Number(it.precio_unitario) : null,
       }));
       payload = {
         proposito: (input as any).proposito ?? null,
@@ -148,6 +208,14 @@ export async function createPedido(input: CreatePedidoInput) {
     }
   }
 
+  // 4) Especiales con compat (planas + anidadas)
+  const especialesCompat = withCompatEspeciales(
+    ambitoIncluido,
+    ambito,
+    (input as any)?.especiales ?? null
+  );
+
+  // 5) Body v2
   const bodyV2 = {
     generales: {
       secretaria: secretariaSafe,
@@ -160,7 +228,8 @@ export async function createPedido(input: CreatePedidoInput) {
       created_by_username: createdByUsername,
     },
     ambitoIncluido,
-    especiales: especiales ?? {},
+    ...(ambito ? { ambito } : {}),
+    ...(Object.keys(especialesCompat).length ? { especiales: especialesCompat } : { especiales: {} }),
     modulo_seleccionado: modulo,
     modulo_draft: { modulo, payload },
   };
@@ -169,7 +238,7 @@ export async function createPedido(input: CreatePedidoInput) {
     method: "POST",
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      ...authHeaders(auth?.token),
+      ...authHeaders(tk),
     },
     cache: "no-store",
     body: JSON.stringify(bodyV2),
@@ -181,3 +250,5 @@ export async function createPedido(input: CreatePedidoInput) {
   }
   return res.json();
 }
+
+export default createPedido;
