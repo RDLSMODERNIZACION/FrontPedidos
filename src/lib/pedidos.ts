@@ -20,19 +20,28 @@ export type CreatePedidoResponse = {
 async function parseOrThrow<T = any>(res: Response, ctx: string): Promise<T> {
   if (res.ok) return res.json() as Promise<T>;
   const txt = await res.text().catch(() => "");
-  throw new Error(`${ctx} -> HTTP ${res.status} ${txt}`);
+  throw new Error(`${ctx} -> HTTP ${res.status}${txt ? ` ${txt}` : ""}`);
+}
+
+function normalizedToken(): string | undefined {
+  try {
+    const t = loadAuth()?.token;
+    return (t ?? undefined) as string | undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /* =========================
  * Crear pedido (formato v2)
  * ========================= */
 export async function createPedido(payload: any): Promise<CreatePedidoResponse> {
-  const auth = loadAuth();
+  const tk = normalizedToken();
   const res = await fetch(`${API_BASE}/pedidos`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
-      ...authHeaders(auth?.token),
+      "Content-Type": "application/json; charset=utf-8",
+      ...authHeaders(tk),
     },
     body: JSON.stringify(payload),
     cache: "no-store",
