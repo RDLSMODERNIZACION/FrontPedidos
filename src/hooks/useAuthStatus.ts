@@ -13,14 +13,25 @@ export function emitAuthChange(isAuthenticated?: boolean) {
 }
 
 export function useAuthStatus() {
-  const { auth, signout } = useAuth();
+  // Unificación segura del contexto: admite {auth:{token,signout}} o {token,signout}
+  const ctx = useAuth() as any;
+  const ctxToken: string | undefined = (ctx?.auth?.token ?? ctx?.token ?? undefined) as
+    | string
+    | undefined;
+  const ctxSignout: (() => Promise<void> | void) | undefined =
+    (ctx?.auth?.signout ?? ctx?.signout) as (() => Promise<void> | void) | undefined;
+
   const [mounted, setMounted] = useState(false);
   const [lsToken, setLsToken] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
   const readStorage = () => {
-    const a = loadAuth();
-    setLsToken(a?.token ?? null);
+    try {
+      const a = loadAuth();
+      setLsToken(a?.token ?? null);
+    } catch {
+      setLsToken(null);
+    }
   };
 
   useEffect(() => {
@@ -29,7 +40,10 @@ export function useAuthStatus() {
   }, []);
 
   useEffect(() => {
-    const refresh = () => { readStorage(); setTick(t => t + 1); };
+    const refresh = () => {
+      readStorage();
+      setTick((t) => t + 1);
+    };
     const onStorage = () => refresh();
     const onAuthChanged = () => refresh();
     const onFocus = () => refresh();
@@ -46,18 +60,22 @@ export function useAuthStatus() {
 
   const isAuthenticated = useMemo(() => {
     if (!mounted) return false;
-    // si el contexto ya tiene auth => true; si no, usamos lo persistido
-    return Boolean(auth?.token || lsToken);
-  }, [mounted, auth?.token, lsToken, tick]);
+    // si el contexto ya tiene token => true; si no, usamos lo persistido
+    return Boolean(ctxToken || lsToken);
+  }, [mounted, ctxToken, lsToken, tick]);
 
   const logout = async () => {
     try {
-      await signout();
+      if (typeof ctxSignout === "function") {
+        await ctxSignout();
+      }
     } finally {
-      try { clearAuth(); } catch {}
+      try {
+        clearAuth();
+      } catch {}
       setLsToken(null);
       emitAuthChange(false);
-      setTick(t => t + 1);
+      setTick((t) => t + 1);
     }
   };
 
