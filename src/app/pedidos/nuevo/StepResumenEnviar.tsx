@@ -34,6 +34,19 @@ export default function StepResumenEnviar({
   const itemsAdq = draft?.payload?.items ?? [];
   const hasItemsAdq = Array.isArray(itemsAdq) && itemsAdq.length > 0;
 
+  // Fallbacks robustos para ámbito
+  const escuelaValue =
+    summary?.ambito?.payload?.escuela ??
+    summary?.especiales?.mantenimientodeescuelas?.escuela ??
+    summary?.especiales?.escuela ??
+    "—";
+
+  const obraNombre =
+    summary?.ambito?.payload?.obra_nombre ??
+    summary?.especiales?.obra?.obra_nombre ??
+    summary?.especiales?.obra_nombre ??
+    "—";
+
   // Requisitos faltantes para tooltip
   const requisitosFaltantes = useMemo(() => {
     const faltan: string[] = [];
@@ -120,16 +133,18 @@ export default function StepResumenEnviar({
           right={<button className="btn-ghost" onClick={onBackAmbito} title="Editar ámbito" disabled={sending}>Editar</button>}
         >
           {amb === "ninguno" && <div className="text-sm text-[#9aa3b2]">Sin datos adicionales.</div>}
+
           {amb === "mantenimientodeescuelas" && (
             <>
               <KV label="Tipo" value="Mantenimiento de Escuelas" />
-              <KV label="Escuela" value={summary?.especiales?.mantenimientodeescuelas?.escuela ?? "—"} />
+              <KV label="Escuela" value={escuelaValue} />
             </>
           )}
+
           {amb === "obra" && (
             <>
               <KV label="Tipo" value="Obra" />
-              <KV label="Nombre de la obra" value={summary?.especiales?.obra?.obra_nombre ?? "—"} />
+              <KV label="Nombre de la obra" value={obraNombre} />
               <KV
                 label="Anexo 1 (PDF)"
                 value={anexoObraOk
@@ -147,14 +162,22 @@ export default function StepResumenEnviar({
         >
           {modSel === "servicios" && (
             <>
-              <KV label="Tipo de servicio" value={draft?.payload?.tipo_servicio} />
-              {draft?.payload?.tipo_servicio === "mantenimiento" && (
-                <KV label="Detalle" value={draft?.payload?.detalle_mantenimiento || "—"} />
+              {/* Si existe tipo_servicio (legacy), lo mostramos */}
+              {draft?.payload?.tipo_servicio && (
+                <KV label="Tipo de servicio" value={draft.payload.tipo_servicio} />
               )}
-              {draft?.payload?.tipo_servicio === "profesionales" && (
+              {/* Nuevo esquema: servicio_requerido / destino_servicio */}
+              {draft?.payload?.servicio_requerido && (
                 <>
-                  <KV label="Tipo profesional" value={draft?.payload?.tipo_profesional || "—"} />
-                  <KV label="Días" value={`${draft?.payload?.dia_desde ?? "—"} · ${draft?.payload?.dia_hasta ?? "—"}`} />
+                  <KV label="Servicio requerido" value={draft.payload.servicio_requerido} />
+                  <KV label="Destino" value={draft.payload.destino_servicio || "—"} />
+                </>
+              )}
+              {/* Profesionales */}
+              {draft?.payload?.tipo_profesional && (
+                <>
+                  <KV label="Tipo profesional" value={draft.payload.tipo_profesional || "—"} />
+                  <KV label="Días" value={`${draft.payload.dia_desde ?? "—"} · ${draft.payload.dia_hasta ?? "—"}`} />
                 </>
               )}
             </>

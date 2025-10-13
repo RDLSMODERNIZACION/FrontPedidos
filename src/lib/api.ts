@@ -3,24 +3,17 @@
 // =====================
 // Tipos del backend
 // =====================
+
+/** Fila del listado (/ui/pedidos/list) — alineado con ui_pedidos_list */
 export type BackendPedido = {
   id: number;
   id_tramite: string | null;      // ej: "EXP-2025-0003"
-  modulo: string | null;          // "Servicios" | "Alquiler" | "Adquisición" | "Reparación" | null
-  secretaria: string;
-  solicitante: string | null;
-  estado: string;                 // "borrador" | "enviado" | "en_revision" | "aprobado" | "rechazado" | "cerrado"
+  secretaria: string;             // nombre de Secretaría
+  estado: string;                 // "borrador" | "enviado" | "en_revision" | "aprobado" | "rechazado" | "en_proceso" | "area_pago" | "cerrado"
   total: number | string | null;  // puede venir como string desde SQL
   creado: string;                 // ISO (ej: "2025-10-10T01:54:52.186849Z")
-  updated_at?: string;
-
-  // Opcionales según la vista del backend
-  tipo_ambito?: string;
-  observaciones?: string | null;
-  has_presupuesto_1?: boolean;
-  has_presupuesto_2?: boolean;
-  has_anexo1_obra?: boolean;
-  secretaria_id?: number;
+  updated_at?: string | null;
+  // (intencionalmente SIN modulo / solicitante)
 };
 
 export type Paginated<T> = {
@@ -30,6 +23,55 @@ export type Paginated<T> = {
   offset: number;
   sort: string;
   filters: Record<string, any>;
+};
+
+/** Detalle compacto desde v_pedido_info (/ui/pedidos/{id}/info) */
+export type PedidoInfo = {
+  id: number;
+  numero: string;
+  fecha_pedido: string | null;
+  fecha_desde: string | null;
+  fecha_hasta: string | null;
+  presupuesto_estimado: number | string | null;
+  observaciones: string | null;
+  modulo_payload: any | null;   // objeto normalizado (solo payload del módulo)
+  ambito_payload: any | null;   // objeto normalizado (payload del ámbito)
+};
+
+/** Archivo de pedido desde v_ui_pedido_archivos (/ui/pedidos/{id}/archivos) */
+export type PedidoArchivo = {
+  id: number;
+  pedido_id: number;
+  kind: string;
+  filename: string;
+  content_type: string | null;
+  size_bytes: number | null;
+  uploaded_at: string | null;
+  review_status: string | null;
+  review_notes?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  url: string;
+};
+
+/** Etapas del trámite desde v_pedido_etapas (/ui/pedidos/{id}/etapas) */
+export type PedidoEtapas = {
+  pedido_id?: number;
+
+  // opcionales (por si la vista los expone; ayudan al timeline)
+  estado?: string | null;
+  estado_actual?: string | null;
+
+  creado_at: string | null;
+  enviado_at: string | null;
+  en_revision_at: string | null;
+  aprobado_at: string | null;
+  en_proceso_at: string | null;
+  area_pago_at: string | null;
+  cerrado_at: string | null;
+  formal_pdf_at: string | null;
+  expediente_1_at: string | null;
+  expediente_2_at: string | null;
 };
 
 // =====================
@@ -45,17 +87,16 @@ type HeaderMap = Record<string, string>;
 
 function readTokenFromStorage(): string | undefined {
   try {
-    // Estructura { token, user, ... } usada por el AuthProvider
     const raw = localStorage.getItem("auth");
     if (raw) {
       const j = JSON.parse(raw);
       if (typeof j?.token === "string" && j.token.trim()) return j.token;
     }
-    // Fallbacks comunes
-    const flat = localStorage.getItem("token")
-      ?? localStorage.getItem("access_token")
-      ?? localStorage.getItem("jwt")
-      ?? localStorage.getItem("idToken");
+    const flat =
+      localStorage.getItem("token") ??
+      localStorage.getItem("access_token") ??
+      localStorage.getItem("jwt") ??
+      localStorage.getItem("idToken");
     if (flat && flat.trim()) return flat;
   } catch { /* noop */ }
   return undefined;
@@ -82,7 +123,10 @@ export function authHeaders(token?: string): HeaderMap {
 
 /** Headers JSON + merge seguro */
 function jsonHeaders(extra?: HeaderMap): HeaderMap {
-  const base: HeaderMap = { Accept: "application/json; charset=utf-8" };
+  const base: HeaderMap = {
+    Accept: "application/json; charset=utf-8",
+    "Content-Type": "application/json",
+  };
   return extra ? { ...base, ...extra } : base;
 }
 
@@ -109,17 +153,32 @@ export async function http<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
-/* =========================================================
- * Pedidos (listado)
- * ========================================================= */
+/** Coerce seguro a número (para 'total' o 'presupuesto_estimado') */
+function toNumber(x: unknown): number | null {
+  if (x === null || x === undefined) return null;
+  if (typeof x === "number") return x;
+  if (typeof x === "string") {
+    const n = Number(x);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
 
-/**
- * Obtiene el listado paginado desde /ui/pedidos/list (backend real).
- * Ejemplo:
- *   getPedidos({ limit: 50, q: "escuelas", estado: "enviado", sort: "updated_at_desc" })
- *
- * Nota: ya no hace falta pasar token; se lee de localStorage automáticamente.
- */
+/** Parsea JSON cuando llega como string; retorna null si falla */
+function safeJSON<T = any>(x: unknown): T | null {
+  if (x === null || x === undefined) return null;
+  if (typeof x === "object") return x as T;
+  if (typeof x === "string") {
+    const s = x.trim();
+    if (!s) return null;
+    try { return JSON.parse(s) as T; } catch { return s as unknown as T; }
+  }
+  return null;
+}
+
+/* =========================================================
+ * Pedidos (listado)  →  GET /ui/pedidos/list
+ * ========================================================= */
 export async function getPedidos(
   params?: {
     limit?: number;
@@ -128,31 +187,120 @@ export async function getPedidos(
     estado?: string;
     sort?: string; // "updated_at_desc" | "created_at_desc" | "total_desc" | etc.
   },
-  token?: string // sigue soportado; si lo pasás, tiene prioridad
+  token?: string // soportado; si lo pasás, tiene prioridad
 ) {
   const url = buildUrl("/ui/pedidos/list", params);
   const headers: HeaderMap = jsonHeaders(authHeaders(token));
   const res = await fetch(url, { cache: "no-store", headers });
   await ensureOk(res);
-  return (await res.json()) as Paginated<BackendPedido>;
+  const data = (await res.json()) as Paginated<BackendPedido>;
+
+  data.items = data.items.map((r) => ({
+    ...r,
+    total: toNumber(r.total) ?? r.total,
+  }));
+
+  return data;
 }
 
 /* =========================================================
- * (Opcional) Detalle y opciones — útiles para futuras pantallas
+ * Pedido (info)  →  GET /ui/pedidos/{id}/info
  * ========================================================= */
+export async function getPedidoInfo(pedidoId: number, token?: string) {
+  const res = await fetch(`${API_BASE}/ui/pedidos/${pedidoId}/info`, {
+    cache: "no-store",
+    headers: jsonHeaders(authHeaders(token)),
+  });
+  await ensureOk(res);
+  const raw = (await res.json()) as PedidoInfo;
 
-// export type BackendPedidoDetalle = Record<string, any>;
+  const info: PedidoInfo = {
+    ...raw,
+    presupuesto_estimado: toNumber(raw.presupuesto_estimado) ?? raw.presupuesto_estimado,
+    modulo_payload: safeJSON(raw.modulo_payload),
+    ambito_payload: safeJSON(raw.ambito_payload),
+  };
 
-// export async function getPedidoDetalle(pedidoId: number, token?: string) {
-//   return await http<BackendPedidoDetalle>(`/ui/pedidos/${pedidoId}`, {
-//     headers: authHeaders(token),
-//   });
-// }
+  return info;
+}
 
-// export async function getPedidosOptions(token?: string) {
-//   return await http<{
-//     estados: string[];
-//     secretarias: { id: number; nombre: string }[];
-//     ambitos: string[];
-//   }>(`/ui/pedidos/options`, { headers: authHeaders(token) });
-// }
+/* =========================================================
+ * Pedido (archivos)  →  GET /ui/pedidos/{id}/archivos
+ * ========================================================= */
+export async function getPedidoArchivos(pedidoId: number, token?: string) {
+  const res = await fetch(`${API_BASE}/ui/pedidos/${pedidoId}/archivos`, {
+    cache: "no-store",
+    headers: jsonHeaders(authHeaders(token)),
+  });
+  await ensureOk(res);
+  const data = await res.json();
+  const items = (Array.isArray(data?.items) ? data.items : []) as PedidoArchivo[];
+  return items.map(a => ({
+    ...a,
+    size_bytes: typeof a.size_bytes === "string" ? Number(a.size_bytes) : a.size_bytes,
+  }));
+}
+
+/* =========================================================
+ * Pedido (etapas)  →  GET /ui/pedidos/{id}/etapas
+ * ========================================================= */
+export async function getPedidoEtapas(pedidoId: number, token?: string): Promise<PedidoEtapas> {
+  const res = await fetch(`${API_BASE}/ui/pedidos/${pedidoId}/etapas`, {
+    cache: "no-store",
+    headers: jsonHeaders(authHeaders(token)),
+  });
+  await ensureOk(res);
+  const raw = (await res.json()) as Partial<PedidoEtapas> | Record<string, never>;
+
+  const def: PedidoEtapas = {
+    pedido_id: typeof raw.pedido_id === "number" ? raw.pedido_id : pedidoId,
+    estado: (raw as any)?.estado ?? null,
+    estado_actual: (raw as any)?.estado_actual ?? null,
+
+    creado_at: raw.creado_at ?? null,
+    enviado_at: raw.enviado_at ?? null,
+    en_revision_at: raw.en_revision_at ?? null,
+    aprobado_at: raw.aprobado_at ?? null,
+    en_proceso_at: raw.en_proceso_at ?? null,
+    area_pago_at: raw.area_pago_at ?? null,
+    cerrado_at: raw.cerrado_at ?? null,
+    formal_pdf_at: raw.formal_pdf_at ?? null,
+    expediente_1_at: raw.expediente_1_at ?? null,
+    expediente_2_at: raw.expediente_2_at ?? null,
+  };
+
+  return def;
+}
+
+/* =========================================================
+ * Diagnóstico rápido (opcional) — loguea API_BASE y prueba /health
+ * Llamalo una vez desde un componente cliente (por ejemplo en PedidoDetalleDrawer).
+ * ========================================================= */
+export function apiDiagOnce() {
+  if (typeof window === "undefined") return;
+  const w = window as any;
+  if (w.__API_DIAGGED) return;
+  w.__API_DIAGGED = true;
+
+  try {
+    // Muestra a dónde apunta realmente el front-end
+    // Útil para detectar mixed content (http:// en producción con https://)
+    // o env mal seteada.
+    // eslint-disable-next-line no-console
+    console.info("[API_BASE]", API_BASE);
+
+    fetch(new URL("/health", API_BASE).toString(), {
+      method: "GET",
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    })
+      .then(r => r.text())
+      // eslint-disable-next-line no-console
+      .then(t => console.info("[API_HEALTH]", t))
+      // eslint-disable-next-line no-console
+      .catch(e => console.warn("[API_HEALTH_ERROR]", e));
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn("[API_DIAG_ERROR]", e);
+  }
+}

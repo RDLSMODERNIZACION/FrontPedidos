@@ -5,7 +5,7 @@ import { FormProvider } from "react-hook-form";
 import ObrasForm from "@/components/forms/modules/ObrasForm";
 import MantenimientoEscuelasForm from "@/components/forms/modules/MantenimientoEscuelasForm";
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { AMBITOS, AMBITO_INTRO, Ambito } from "./constants";
+import { AMBITOS, Ambito } from "./constants";
 import { Card } from "./UI";
 
 export default function StepAmbitos(props: {
@@ -24,30 +24,38 @@ export default function StepAmbitos(props: {
     obrasForm, escForm, onBack, onNext
   } = props;
 
-  // Validar mínimamente por valor, sin forzar resolver completo de módulo
-  const obraId = Number(obrasForm?.getValues?.("obra_id") ?? 0);
-  const escuelaId = Number(escForm?.getValues?.("escuela_id") ?? 0);
+  // 🔎 Tomamos los valores REALES que usa el backend
+  const obraNombre = String(obrasForm?.getValues?.("obra_nombre") ?? "").trim();
+  const escuelaNombre = String(escForm?.getValues?.("escuela") ?? "").trim();
 
+  // Reglas de bloqueo basadas en los campos que realmente envías
   const bloqueoObra =
-    ambitoIncluido === "obra" && (!obraId || Number.isNaN(obraId));
+    ambitoIncluido === "obra" && obraNombre.length === 0;
+
   const bloqueoEscuela =
-    ambitoIncluido === "mantenimientodeescuelas" && (!escuelaId || Number.isNaN(escuelaId));
+    ambitoIncluido === "mantenimientodeescuelas" && escuelaNombre.length === 0;
 
   const puedeSeguir =
-    (ambitoIncluido || ambitoSelected === "ninguno") &&
-    !bloqueoObra &&
-    !bloqueoEscuela;
+    ambitoIncluido !== null &&
+    !(ambitoIncluido === "obra" && bloqueoObra) &&
+    !(ambitoIncluido === "mantenimientodeescuelas" && bloqueoEscuela);
+
+  // Al tocar una card, auto-incluimos (evita el paso extra "Incluir")
+  function handleCardClick(a: Ambito) {
+    handleSelectAmbito(a);
+    includeAmbito(a);
+  }
 
   async function handleNext() {
-    // Si quisieras forzar validación de Zod del subform (opcional):
-    // if (ambitoIncluido === "obra") {
-    //   const ok = await obrasForm.trigger();
-    //   if (!ok) return;
-    // }
-    // if (ambitoIncluido === "mantenimientodeescuelas") {
-    //   const ok = await escForm.trigger();
-    //   if (!ok) return;
-    // }
+    // Forzamos validación del subform si corresponde
+    if (ambitoIncluido === "obra") {
+      const ok = await obrasForm.trigger();
+      if (!ok) return;
+    }
+    if (ambitoIncluido === "mantenimientodeescuelas") {
+      const ok = await escForm.trigger();
+      if (!ok) return;
+    }
     onNext();
   }
 
@@ -62,56 +70,53 @@ export default function StepAmbitos(props: {
               title={a.title}
               hint={a.hint}
               active={ambitoSelected === a.id}
-              onClick={() => handleSelectAmbito(a.id)}
+              onClick={() => handleCardClick(a.id)}
             />
           ))}
         </div>
       </section>
 
-      {ambitoSelected && (
+      {ambitoIncluido && (
         <section className="card grid gap-3">
           <div className="text-base font-semibold">
-            {AMBITOS.find(x => x.id === ambitoSelected)?.title}
+            {AMBITOS.find(x => x.id === ambitoIncluido)?.title}
           </div>
 
-          {(ambitoIncluido === ambitoSelected || ambitoSelected === "ninguno") ? (
-            <>
-              {ambitoSelected === "mantenimientodeescuelas" && (
-                <FormProvider {...escForm}>
-                  <form className="grid gap-3" onSubmit={(e) => e.preventDefault()}>
-                    <MantenimientoEscuelasForm />
-                  </form>
-                </FormProvider>
-              )}
-              {ambitoSelected === "obra" && (
-                <FormProvider {...obrasForm}>
-                  <form className="grid gap-3" onSubmit={(e) => e.preventDefault()}>
-                    <ObrasForm />
-                  </form>
-                </FormProvider>
-              )}
-              {ambitoSelected === "ninguno" && (
-                <div className="text-[#9aa3b2]">Sin datos adicionales. Podés continuar.</div>
-              )}
-              <div className="flex gap-2 justify-end">
-                {ambitoSelected !== "ninguno" && (
-                  <button className="btn-ghost" onClick={clearAmbito}>Quitar</button>
+          {ambitoIncluido === "mantenimientodeescuelas" && (
+            <FormProvider {...escForm}>
+              <form className="grid gap-3" onSubmit={(e) => e.preventDefault()}>
+                <MantenimientoEscuelasForm />
+                {bloqueoEscuela && (
+                  <div className="text-amber-300 text-sm">
+                    Ingresá o seleccioná una escuela para continuar.
+                  </div>
                 )}
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="text-[#cfd6e6]">{AMBITO_INTRO[ambitoSelected].intro}</p>
-              {!!AMBITO_INTRO[ambitoSelected].bullets?.length && (
-                <ul className="list-disc pl-5 text-[#9aa3b2]">
-                  {AMBITO_INTRO[ambitoSelected].bullets!.map((b, i) => <li key={i}>{b}</li>)}
-                </ul>
-              )}
-              <div className="flex gap-2 justify-end">
-                <button className="btn" onClick={() => includeAmbito(ambitoSelected!)}>Incluir</button>
-              </div>
-            </>
+              </form>
+            </FormProvider>
           )}
+
+          {ambitoIncluido === "obra" && (
+            <FormProvider {...obrasForm}>
+              <form className="grid gap-3" onSubmit={(e) => e.preventDefault()}>
+                <ObrasForm />
+                {bloqueoObra && (
+                  <div className="text-amber-300 text-sm">
+                    Ingresá o seleccioná el nombre de la obra para continuar.
+                  </div>
+                )}
+              </form>
+            </FormProvider>
+          )}
+
+          {ambitoIncluido === "ninguno" && (
+            <div className="text-[#9aa3b2]">Sin datos adicionales. Podés continuar.</div>
+          )}
+
+          <div className="flex gap-2 justify-end">
+            {ambitoIncluido !== "ninguno" && (
+              <button className="btn-ghost" onClick={clearAmbito}>Quitar</button>
+            )}
+          </div>
         </section>
       )}
 
@@ -124,12 +129,12 @@ export default function StepAmbitos(props: {
           onClick={handleNext}
           disabled={!puedeSeguir}
           title={
-            !ambitoIncluido && ambitoSelected !== "ninguno"
-              ? "Incluí un ambiente o elegí 'Ninguno'"
+            !ambitoIncluido
+              ? "Elegí un ambiente o seleccioná 'Ninguno'"
               : bloqueoObra
-                ? "Seleccioná una obra para continuar"
+                ? "Falta el nombre de la obra"
                 : bloqueoEscuela
-                  ? "Seleccioná una escuela para continuar"
+                  ? "Falta seleccionar/ingresar la escuela"
                   : ""
           }
         >

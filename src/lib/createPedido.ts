@@ -3,157 +3,181 @@ import type { CreatePedidoInput } from "./schemas";
 import { API_BASE, authHeaders } from "@/lib/api";
 import { loadAuth } from "@/lib/auth";
 
-/**
- * Helpers locales (sin dependencias externas)
- */
-const daysBetween = (a: string, b: string) =>
-  Math.max(1, Math.ceil((new Date(b).getTime() - new Date(a).getTime()) / 86_400_000));
-
-const monthsBetweenApprox = (a: string, b: string) => {
-  const d1 = new Date(a);
-  const d2 = new Date(b);
-  return Math.max(
-    1,
-    (d2.getFullYear() - d1.getFullYear()) * 12 +
-      (d2.getMonth() - d1.getMonth()) +
-      (d2.getDate() >= d1.getDate() ? 0 : -1)
-  );
-};
-
-const genIdTramite = () => {
-  const y = new Date().getFullYear();
-  const r = Math.floor(Math.random() * 10_000).toString().padStart(4, "0");
-  return `EXP-${y}-${r}`;
-};
+/** Fecha YYYY-MM-DD (hoy) */
+const todayISO = () => new Date().toISOString().slice(0, 10);
 
 /**
- * Creador de pedidos (envía Authorization y adjunta 'secretaria' si está disponible)
+ * Creador de pedidos — envía SIEMPRE el payload v2 que espera el backend:
+ * {
+ *   generales: {...},
+ *   ambitoIncluido: "ninguno" | "obra" | "mantenimientodeescuelas",
+ *   especiales: { obra_nombre? | escuela? },
+ *   modulo_seleccionado: "servicios" | "alquiler" | "adquisicion" | "reparacion",
+ *   modulo_draft: { modulo, payload }
+ * }
  */
 export async function createPedido(input: CreatePedidoInput) {
-  // `id_tramite` es opcional: si no viene, lo generamos.
-  const maybe = (input as Partial<{ id_tramite?: string }>).id_tramite;
-  const id_tramite =
-    typeof maybe === "string" && maybe.trim().length > 0 ? maybe.trim() : genIdTramite();
-
-  // Tomamos secretaria desde el input (si el form la trae) o desde el perfil persistido
   const auth = loadAuth();
-  const secretariaSafe: string | null =
+  const secretariaSafe: string =
     (input as any)?.secretaria ??
     auth?.user?.secretaria ??
     auth?.user?.department ??
     auth?.user?.departamento ??
-    null;
+    "";
 
-  let total = 0;
+  const createdByUsername: string | undefined =
+    (auth?.user?.username as string | undefined) ??
+    (auth?.user?.email ? String(auth.user.email).split("@")[0] : undefined);
+
+  const fecha_pedido: string | null = (input as any)?.fecha_pedido ?? todayISO();
+  const fecha_desde: string | null = (input as any)?.fecha_desde ?? null;
+  const fecha_hasta: string | null = (input as any)?.fecha_hasta ?? null;
+  const presupuesto_estimado: number | string | null =
+    (input as any)?.presupuesto_estimado ?? null;
+
+  // Ambito v2
+  let ambitoIncluido: "ninguno" | "obra" | "mantenimientodeescuelas" =
+    ((input as any)?.ambitoIncluido as any) ??
+    ((input as any)?.ambito?.tipo as any) ??
+    "ninguno";
+  if (ambitoIncluido === "general") ambitoIncluido = "ninguno";
+
+  // especiales (solo cuando aplica)
+  let especiales: Record<string, any> | undefined = undefined;
+  if (ambitoIncluido === "obra") {
+    const obra_nombre =
+      (input as any)?.obra_nombre ??
+      (input as any)?.nombre_obra ??
+      (input as any)?.ambito?.obra?.obra_nombre ??
+      null;
+    if (obra_nombre) especiales = { obra_nombre };
+  } else if (ambitoIncluido === "mantenimientodeescuelas") {
+    const escuela =
+      (input as any)?.escuela ??
+      (input as any)?.ambito?.escuelas?.escuela ??
+      null;
+    if (escuela) especiales = { escuela };
+  }
+
+  const modulo = (input as any).modulo as
+    | "servicios"
+    | "alquiler"
+    | "adquisicion"
+    | "reparacion";
+
   let payload: Record<string, any> = {};
-
-  switch (input.modulo) {
+  switch (modulo) {
     case "servicios": {
-      total = 0;
-      const tipo = (input as any).tipo_servicio as "mantenimiento" | "profesionales";
-      if (tipo === "mantenimiento") {
+      const tipo = (input as any).tipo_servicio as "mantenimiento" | "profesionales" | "otros";
+      if (tipo === "profesionales") {
         payload = {
-          tipo_servicio: "mantenimiento",
-          detalle_mantenimiento: (input as any).detalle_mantenimiento,
+          tipo_profesional: (input as any).tipo_profesional ?? null,
+          dia_desde: (input as any).dia_desde ?? null,
+          dia_hasta: (input as any).dia_hasta ?? null,
         };
       } else {
+        const detalle =
+          (input as any).detalle_mantenimiento ??
+          (input as any).servicio_requerido ??
+          "";
         payload = {
-          tipo_servicio: "profesionales",
-          tipo_profesional: (input as any).tipo_profesional,
-          dia_desde: (input as any).dia_desde,
-          dia_hasta: (input as any).dia_hasta,
+          servicio_requerido: detalle,
+          destino_servicio: (input as any).destino_servicio ?? null,
         };
       }
       break;
     }
-
     case "alquiler": {
-      total = 0;
       const cat = (input as any).categoria as "edificio" | "maquinaria" | "otros";
       if (cat === "edificio") {
         payload = {
           categoria: "edificio",
-          uso_edificio: (input as any).uso_edificio,
-          ubicacion_edificio: (input as any).ubicacion_edificio,
+          uso_edificio: (input as any).uso_edificio ?? null,
+          ubicacion_edificio: (input as any).ubicacion_edificio ?? null,
         };
       } else if (cat === "maquinaria") {
         payload = {
           categoria: "maquinaria",
-          uso_maquinaria: (input as any).uso_maquinaria,
-          tipo_maquinaria: (input as any).tipo_maquinaria,
+          uso_maquinaria: (input as any).uso_maquinaria ?? null,
+          tipo_maquinaria: (input as any).tipo_maquinaria ?? null,
           requiere_combustible: !!(input as any).requiere_combustible,
           requiere_chofer: !!(input as any).requiere_chofer,
-          cronograma_desde: (input as any).cronograma_desde,
-          cronograma_hasta: (input as any).cronograma_hasta,
+          cronograma_desde: (input as any).cronograma_desde ?? null,
+          cronograma_hasta: (input as any).cronograma_hasta ?? null,
           horas_por_dia: Number((input as any).horas_por_dia) || 0,
         };
       } else {
         payload = {
           categoria: "otros",
-          que_alquilar: (input as any).que_alquilar,
-          detalle_uso: (input as any).detalle_uso,
+          que_alquilar: (input as any).que_alquilar ?? null,
+          detalle_uso: (input as any).detalle_uso ?? null,
         };
       }
       break;
     }
-
     case "adquisicion": {
-      total = 0;
+      const itemsRaw: any[] = Array.isArray((input as any).items) ? (input as any).items : [];
+      const items = itemsRaw.map((it) => ({
+        descripcion: it.descripcion,
+        cantidad: Number(it.cantidad ?? 1),
+        unidad: it.unidad ?? null,
+        precio_unitario: it.precio_unitario != null ? Number(it.precio_unitario) : null,
+      }));
       payload = {
-        proposito: (input as any).proposito,
-        items: (input as any).items, // [{ descripcion, cantidad, unidad, observaciones }]
+        proposito: (input as any).proposito ?? null,
+        modo_adquisicion: (input as any).modo_adquisicion ?? "uno",
+        items,
       };
       break;
     }
-
     case "reparacion": {
-      total = 0;
       if ((input as any).tipo_reparacion === "maquinaria") {
         payload = {
           tipo_reparacion: "maquinaria",
-          unidad_reparar: (input as any).unidad_reparar,
-          detalle_reparacion: (input as any).detalle_reparacion,
+          unidad_reparar: (input as any).unidad_reparar ?? null,
+          detalle_reparacion: (input as any).detalle_reparacion ?? null,
         };
       } else {
         payload = {
           tipo_reparacion: "otros",
-          que_reparar: (input as any).que_reparar,
-          detalle_reparacion: (input as any).detalle_reparacion,
+          que_reparar: (input as any).que_reparar ?? null,
+          detalle_reparacion: (input as any).detalle_reparacion ?? null,
         };
       }
       break;
     }
   }
 
-  // URL real del backend
-  const url = `${API_BASE}/pedidos`;
+  const bodyV2 = {
+    generales: {
+      secretaria: secretariaSafe,
+      estado: (input as any)?.estado ?? "enviado",
+      fecha_pedido,
+      fecha_desde,
+      fecha_hasta,
+      presupuesto_estimado,
+      observaciones: (input as any)?.observaciones ?? null,
+      created_by_username: createdByUsername,
+    },
+    ambitoIncluido,
+    especiales: especiales ?? {},
+    modulo_seleccionado: modulo,
+    modulo_draft: { modulo, payload },
+  };
 
-  // Token (si existe) para Authorization
-  const token = auth?.token ?? undefined;
-
-  const res = await fetch(url, {
+  const res = await fetch(`${API_BASE}/pedidos`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      ...authHeaders(token),
+      ...authHeaders(auth?.token),
     },
     cache: "no-store",
-    body: JSON.stringify({
-      id_tramite,
-      modulo: input.modulo,
-      total,
-      // Enviamos secretaria arriba si el backend la espera allí (y también como metadato)
-      secretaria: secretariaSafe,
-      payload: {
-        ...payload,
-        _front: {
-          ...(payload?._front ?? {}),
-          secretaria: secretariaSafe,
-        },
-      },
-    }),
+    body: JSON.stringify(bodyV2),
   });
 
-  if (!res.ok) throw new Error(`API ${res.status}`);
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`API ${res.status}${t ? ` — ${t}` : ""}`);
+  }
   return res.json();
 }

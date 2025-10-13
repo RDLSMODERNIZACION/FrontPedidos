@@ -1,133 +1,98 @@
 // src/components/PedidosTable.tsx
 'use client';
 
-import { useMemo, useState } from "react";
-import Badge from "./Badge";
-import { cap, fmtDate, fmtMoney } from "@/lib/utils";
-import type { BackendPedido } from "@/lib/api";
+import React from "react";
+import { type BackendPedido } from "@/lib/api";
+import { cap } from "@/lib/utils";
 
 type Props = {
   rows: BackendPedido[];
   onOpen: (row: BackendPedido) => void;
 };
 
-// claves habilitadas para orden
-type SortKey = "id_tramite" | "modulo" | "secretaria" | "solicitante" | "estado" | "total" | "creado";
-type Sort = { by: SortKey; dir: "asc" | "desc" };
-
-// normaliza el valor a usar para ordenar según la columna
-function getOrderValue(row: BackendPedido, by: SortKey): string | number {
-  switch (by) {
-    case "total": {
-      const n = row.total === null ? 0 : Number(row.total);
-      return Number.isNaN(n) ? 0 : n;
-    }
-    case "creado": {
-      const t = row.creado ? Date.parse(row.creado) : 0;
-      return Number.isNaN(t) ? 0 : t;
-    }
-    case "modulo": {
-      // mostrar/ordenar por módulo; si no hay, caer al tipo_ambito
-      return (row.modulo ?? row.tipo_ambito ?? "").toString();
-    }
-    case "solicitante":
-      return (row.solicitante ?? "").toString();
-    case "id_tramite":
-      return (row.id_tramite ?? `#${row.id}`).toString();
-    default:
-      return (row[by] as any ?? "").toString();
+function money(v: unknown): string {
+  const n =
+    typeof v === "number"
+      ? v
+      : typeof v === "string" && !Number.isNaN(Number(v))
+      ? Number(v)
+      : null;
+  if (n === null) return "—";
+  try {
+    return new Intl.NumberFormat("es-AR", {
+      style: "currency",
+      currency: "ARS",
+      maximumFractionDigits: 0,
+    }).format(n);
+  } catch {
+    return `$ ${n}`;
   }
 }
 
-export default function PedidosTable({ rows, onOpen }: Props) {
-  const [sort, setSort] = useState<Sort>({ by: "creado", dir: "desc" });
+function fmtDT(d?: string | null): string {
+  if (!d) return "—";
+  try { return new Date(d).toLocaleString(); } catch { return String(d); }
+}
 
-  const sorted = useMemo(() => {
-    const arr = [...rows];
-    arr.sort((a, b) => {
-      const va = getOrderValue(a, sort.by);
-      const vb = getOrderValue(b, sort.by);
-      const dir = sort.dir === "asc" ? 1 : -1;
-      if (typeof va === "number" && typeof vb === "number") {
-        return (va - vb) * dir;
-      }
-      return String(va).localeCompare(String(vb)) * dir;
-    });
-    return arr;
-  }, [rows, sort]);
-
-  const Th = ({
-    k,
-    children,
-    className,
-  }: {
-    k: SortKey;
-    children: React.ReactNode;
-    className?: string;
-  }) => (
-    <th
-      className={className}
-      onClick={() =>
-        setSort((s) =>
-          s.by === k ? { by: k, dir: s.dir === "asc" ? "desc" : "asc" } : { by: k, dir: "asc" }
-        )
-      }
-      style={{ cursor: "pointer", userSelect: "none" }}
-      title="Ordenar"
-    >
-      {children}
-      {sort.by === k ? (sort.dir === "asc" ? " ↑" : " ↓") : null}
-    </th>
-  );
-
+function estadoPill(estado?: string | null) {
+  const e = (estado ?? "").toString();
+  const tone =
+    e === "aprobado" || e === "cerrado"
+      ? "bg-emerald-500"
+      : e === "rechazado"
+      ? "bg-red-500"
+      : "bg-amber-500";
   return (
-    <div className="border border-[#1b2132] rounded-2xl overflow-auto">
-      <table className="table min-w-[880px]">
-        <thead>
+    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10">
+      <span className={`h-2.5 w-2.5 rounded-full ${tone}`} />
+      <span className="text-sm">{cap(e.replace("_", " ")) || "—"}</span>
+    </span>
+  );
+}
+
+export default function PedidosTable({ rows, onOpen }: Props) {
+  return (
+    <div className="rounded-2xl border border-[#2b3550] overflow-hidden">
+      <table className="w-full text-sm">
+        <thead className="text-[#9aa3b2] bg-white/5">
           <tr>
-            <Th k="id_tramite">ID Trámite</Th>
-            <Th k="modulo">Módulo</Th>
-            <Th k="secretaria">Secretaría</Th>
-            <Th k="solicitante">Solicitante</Th>
-            <Th k="estado">Estado</Th>
-            <Th k="total" className="text-right">Total</Th>
-            <Th k="creado">Creado</Th>
-            <th></th>
+            <th className="text-left px-4 py-3">ID Trámite</th>
+            {/* 👇 Quitamos Módulo */}
+            <th className="text-left px-4 py-3">Secretaría</th>
+            {/* 👇 Quitamos Solicitante */}
+            <th className="text-left px-4 py-3">Estado</th>
+            <th className="text-right px-4 py-3">Total</th>
+            <th className="text-left px-4 py-3">Creado</th>
+            <th className="text-right px-4 py-3"> </th>
           </tr>
         </thead>
-        <tbody>
-          {sorted.map((r) => (
-            <tr key={r.id}>
-              <td className="font-mono">{r.id_tramite ?? `#${r.id}`}</td>
-              <td>{cap((r.modulo ?? r.tipo_ambito ?? "—").toString())}</td>
-              <td><small className="text-[#9aa3b2]">{r.secretaria}</small></td>
-              <td>{r.solicitante ?? "—"}</td>
-              <td>
-                <Badge
-                  tone={
-                    r.estado === "aprobado" || r.estado === "cerrado"
-                      ? "ok"
-                      : r.estado === "rechazado"
-                      ? "bad"
-                      : "warn"
-                  }
-                >
-                  {cap(r.estado)}
-                </Badge>
-              </td>
-              <td className="text-right">{fmtMoney(r.total)}</td>
-              <td><small className="text-[#9aa3b2]">{fmtDate(r.creado)}</small></td>
-              <td className="text-right">
-                <button className="icon-btn" onClick={() => onOpen(r)}>Ver</button>
-              </td>
-            </tr>
-          ))}
-          {sorted.length === 0 && (
+        <tbody className="divide-y divide-[#1b2132]">
+          {rows.length === 0 ? (
             <tr>
-              <td colSpan={8} className="py-6 text-center text-slate-500">
-                Sin resultados
+              <td className="px-4 py-5 text-[#9aa3b2]" colSpan={6}>
+                No hay pedidos para mostrar.
               </td>
             </tr>
+          ) : (
+            rows.map((r) => {
+              const idt = r.id_tramite ?? `#${r.id}`;
+              const total = (r as any).total ?? (r as any).presupuesto_estimado ?? null;
+              const creado = (r as any).created_at ?? (r as any).creado ?? (r as any).fecha_pedido ?? null;
+              return (
+                <tr key={r.id} className="hover:bg-white/2">
+                  <td className="px-4 py-3 font-medium">{idt}</td>
+                  {/* sin módulo */}
+                  <td className="px-4 py-3">{r.secretaria ?? "—"}</td>
+                  {/* sin solicitante */}
+                  <td className="px-4 py-3">{estadoPill(r.estado)}</td>
+                  <td className="px-4 py-3 text-right">{money(total)}</td>
+                  <td className="px-4 py-3">{fmtDT(creado)}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button className="btn" onClick={() => onOpen(r)}>Ver</button>
+                  </td>
+                </tr>
+              );
+            })
           )}
         </tbody>
       </table>
