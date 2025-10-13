@@ -3,36 +3,12 @@
 
 import React from "react";
 import { type BackendPedido } from "@/lib/api";
-import { cap } from "@/lib/utils";
+import { cap, fmtMoney, fmtDate } from "@/lib/utils";
 
 type Props = {
   rows: BackendPedido[];
   onOpen: (row: BackendPedido) => void;
 };
-
-function money(v: unknown): string {
-  const n =
-    typeof v === "number"
-      ? v
-      : typeof v === "string" && !Number.isNaN(Number(v))
-      ? Number(v)
-      : null;
-  if (n === null) return "—";
-  try {
-    return new Intl.NumberFormat("es-AR", {
-      style: "currency",
-      currency: "ARS",
-      maximumFractionDigits: 0,
-    }).format(n);
-  } catch {
-    return `$ ${n}`;
-  }
-}
-
-function fmtDT(d?: string | null): string {
-  if (!d) return "—";
-  try { return new Date(d).toLocaleString(); } catch { return String(d); }
-}
 
 function estadoPill(estado?: string | null) {
   const e = (estado ?? "").toString();
@@ -57,9 +33,7 @@ export default function PedidosTable({ rows, onOpen }: Props) {
         <thead className="text-[#9aa3b2] bg-white/5">
           <tr>
             <th className="text-left px-4 py-3">ID Trámite</th>
-            {/* 👇 Quitamos Módulo */}
             <th className="text-left px-4 py-3">Secretaría</th>
-            {/* 👇 Quitamos Solicitante */}
             <th className="text-left px-4 py-3">Estado</th>
             <th className="text-right px-4 py-3">Total</th>
             <th className="text-left px-4 py-3">Creado</th>
@@ -75,18 +49,21 @@ export default function PedidosTable({ rows, onOpen }: Props) {
             </tr>
           ) : (
             rows.map((r) => {
-              const idt = r.id_tramite ?? `#${r.id}`;
+              const idt = (r as any).id_tramite ?? `#${(r as any).id}`;
               const total = (r as any).total ?? (r as any).presupuesto_estimado ?? null;
-              const creado = (r as any).created_at ?? (r as any).creado ?? (r as any).fecha_pedido ?? null;
+              const creado =
+                (r as any).creado ??
+                (r as any).created_at ??
+                (r as any).fecha_pedido ??
+                null;
+
               return (
-                <tr key={r.id} className="hover:bg-white/2">
+                <tr key={(r as any).id} className="hover:bg-white/2">
                   <td className="px-4 py-3 font-medium">{idt}</td>
-                  {/* sin módulo */}
-                  <td className="px-4 py-3">{r.secretaria ?? "—"}</td>
-                  {/* sin solicitante */}
-                  <td className="px-4 py-3">{estadoPill(r.estado)}</td>
-                  <td className="px-4 py-3 text-right">{money(total)}</td>
-                  <td className="px-4 py-3">{fmtDT(creado)}</td>
+                  <td className="px-4 py-3">{(r as any).secretaria ?? "—"}</td>
+                  <td className="px-4 py-3">{estadoPill((r as any).estado)}</td>
+                  <td className="px-4 py-3 text-right">{fmtMoney(total)}</td>
+                  <td className="px-4 py-3">{fmtDate(creado)}</td>
                   <td className="px-4 py-3 text-right">
                     <button className="btn" onClick={() => onOpen(r)}>Ver</button>
                   </td>
