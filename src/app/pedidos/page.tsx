@@ -77,12 +77,10 @@ export default function Page() {
     if (filtros.estado) rows = rows.filter((r) => r.estado === filtros.estado);
     if (filtros.q) {
       const q = filtros.q.toLowerCase();
-      rows = rows.filter((r: any) => {
-        const s =
-          (r.id_tramite ?? `#${r.id}`) +
-          (r.modulo ?? r.tipo_ambito ?? "") +
-          (r.secretaria ?? "") +
-          (r.solicitante ?? "");
+      rows = rows.filter((r: BackendPedido) => {
+        const mod = ((r as any)?.modulo ?? (r as any)?.tipo_ambito ?? "") as string;
+        const solicitante = ((r as any)?.solicitante ?? "") as string;
+        const s = (r.id_tramite ?? `#${r.id}`) + mod + (r.secretaria ?? "") + solicitante;
         return s.toLowerCase().includes(q);
       });
     }
@@ -194,7 +192,9 @@ export default function Page() {
                         headers
                           .map((h) =>
                             JSON.stringify(
-                              h === "modulo" ? (r.modulo ?? r.tipo_ambito ?? "") : r[h] ?? ""
+                              h === "modulo"
+                                ? ((r as any).modulo ?? (r as any).tipo_ambito ?? "")
+                                : r[h] ?? ""
                             )
                           )
                           .join(",")
@@ -237,7 +237,13 @@ export default function Page() {
             selected
               ? `${
                   selected.id_tramite ?? `#${selected.id}`
-                } · ${cap((selected.modulo ?? (selected as any).tipo_ambito ?? "—").toString())}`
+                } · ${cap(
+                  (
+                    ((selected as any)?.modulo ??
+                      (selected as any)?.tipo_ambito ??
+                      "—") as string
+                  ).toString()
+                )}`
               : "Detalle"
           }
         >
