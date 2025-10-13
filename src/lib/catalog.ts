@@ -24,14 +24,24 @@ export type Unidad   = {
   activa: boolean;
 };
 
+/* Utilidad: token normalizado a string | undefined (nunca null) */
+function normalizedToken(): string | undefined {
+  try {
+    const t = loadAuth()?.token;
+    return (t ?? undefined) as string | undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /* ===== Escuelas ===== */
 export async function listEscuelas(q?: string, activa: boolean = true): Promise<Escuela[]> {
   const url = new URL("/pedidos/catalogo/escuelas", BASE);
   if (q) url.searchParams.set("q", q);
   if (activa !== undefined) url.searchParams.set("activa", String(activa));
-  const auth = loadAuth();
+  const token = normalizedToken();
   const r = await fetch(url.toString(), {
-    headers: { ...authHeaders(auth?.token) },
+    headers: { ...authHeaders(token) },
     cache: "no-store",
   });
   if (!r.ok) throw new Error(`GET escuelas -> HTTP ${r.status}`);
@@ -39,11 +49,11 @@ export async function listEscuelas(q?: string, activa: boolean = true): Promise<
 }
 
 export async function createEscuela(payload: { nombre: string; activa?: boolean }) {
-  const auth = loadAuth();
+  const token = normalizedToken();
   const r = await fetch(`${BASE}/pedidos/catalogo/escuelas`, {
     method: "POST",
     headers: {
-      ...authHeaders(auth?.token),
+      ...authHeaders(token),
       "Content-Type": "application/json; charset=utf-8",
     },
     body: JSON.stringify(payload),
@@ -57,9 +67,9 @@ export async function listObras(q?: string, activa: boolean = true): Promise<Obr
   const url = new URL("/pedidos/catalogo/obras", BASE);
   if (q) url.searchParams.set("q", q);
   if (activa !== undefined) url.searchParams.set("activa", String(activa));
-  const auth = loadAuth();
+  const token = normalizedToken();
   const r = await fetch(url.toString(), {
-    headers: { ...authHeaders(auth?.token) },
+    headers: { ...authHeaders(token) },
     cache: "no-store",
   });
   if (!r.ok) throw new Error(`GET obras -> HTTP ${r.status}`);
@@ -67,11 +77,11 @@ export async function listObras(q?: string, activa: boolean = true): Promise<Obr
 }
 
 export async function createObra(payload: { nombre: string; activa?: boolean }) {
-  const auth = loadAuth();
+  const token = normalizedToken();
   const r = await fetch(`${BASE}/pedidos/catalogo/obras`, {
     method: "POST",
     headers: {
-      ...authHeaders(auth?.token),
+      ...authHeaders(token),
       "Content-Type": "application/json; charset=utf-8",
     },
     body: JSON.stringify(payload),
@@ -85,9 +95,9 @@ export async function listUnidades(q?: string, activa: boolean = true): Promise<
   const url = new URL("/pedidos/catalogo/unidades", BASE);
   if (q) url.searchParams.set("q", q);
   if (activa !== undefined) url.searchParams.set("activa", String(activa));
-  const auth = loadAuth();
+  const token = normalizedToken();
   const r = await fetch(url.toString(), {
-    headers: { ...authHeaders(auth?.token) },
+    headers: { ...authHeaders(token) },
     cache: "no-store",
   });
   if (!r.ok) throw new Error(`GET unidades -> HTTP ${r.status}`);
@@ -95,9 +105,9 @@ export async function listUnidades(q?: string, activa: boolean = true): Promise<
 }
 
 export async function getUnidadByNumero(unidad_nro: number): Promise<Unidad> {
-  const auth = loadAuth();
+  const token = normalizedToken();
   const r = await fetch(`${BASE}/pedidos/catalogo/unidades/${unidad_nro}`, {
-    headers: { ...authHeaders(auth?.token) },
+    headers: { ...authHeaders(token) },
     cache: "no-store",
   });
   if (!r.ok) throw new Error(`GET unidad ${unidad_nro} -> HTTP ${r.status}`);
