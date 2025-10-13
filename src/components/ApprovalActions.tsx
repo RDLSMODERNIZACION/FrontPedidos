@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { reviewArchivo, type ReviewDecision } from "@/lib/api";
+import { reviewArchivo } from "@/lib/archivos";
 
 type DocTipo = "formal_pdf" | "expediente_1" | "expediente_2";
 
@@ -26,9 +26,9 @@ type Props = {
   onReject?: (motivo?: string | null) => Promise<void> | void;
 
   /** ---- MODO ARCHIVO (persistencia automática) ---- */
-  pedidoId?: number;
-  archivoId?: number;
-  docType?: DocTipo; // si viene, el componente llama reviewArchivo() y persiste en DB
+  pedidoId?: number;         // opcional (solo para contexto/títulos)
+  archivoId?: number;        // requerido en modo archivo
+  docType?: DocTipo;         // requerido en modo archivo (para títulos)
 
   /** post-acción (re-fetch etapas/archivos) */
   onAfter?: () => void;
@@ -47,21 +47,25 @@ export default function ApprovalActions({
   docType,
   onAfter,
 }: Props) {
-  const { user } = useAuth();
+  // Unificación segura del contexto de auth
+  const authCtx = useAuth() as any;
+  const user = authCtx?.user ?? authCtx?.auth?.user ?? null;
+  const token: string | undefined = (authCtx?.token ?? authCtx?.auth?.token ?? undefined) as
+    | string
+    | undefined;
+
   const [busy, setBusy] = useState(false);
 
-  // Estados terminales:
-  const terminalPedido =
-    estadoActual === "cerrado" || estadoActual === "rechazado";
-  const terminalArchivo =
-    reviewStatus === "aprobado" || reviewStatus === "observado";
+  // Estados terminales
+  const terminalPedido = estadoActual === "cerrado" || estadoActual === "rechazado";
+  const terminalArchivo = reviewStatus === "aprobado" || reviewStatus === "observado";
   const terminal = terminalPedido || terminalArchivo;
 
   const disabled = !!loading || busy || terminal || !canAct;
 
   // Helpers de UI
-  const isArchivoMode = !!(pedidoId && archivoId && docType);
-  const labelApprove = isArchivoMode ? "Aprobar" : "Aprobar";
+  const isArchivoMode = !!(archivoId && docType);
+  const labelApprove = "Aprobar";
   const labelMiddle = isArchivoMode ? "Observar" : "En revisión";
   const titleApprove = terminal
     ? "Estado final, no se puede modificar"
@@ -77,14 +81,10 @@ export default function ApprovalActions({
   const reviewerName =
     (user as any)?.nombre ?? (user as any)?.username ?? (user as any)?.email ?? "ui";
 
-  const doReviewArchivo = async (review_status: "aprobado" | "observado") => {
-    if (!pedidoId || !archivoId || !docType) return;
-    const payload: ReviewDecision = {
-      review_status,
-      tipo_doc: docType,
-      reviewer: reviewerName,
-    };
-    await reviewArchivo(pedidoId, archivoId, payload, (user as any)?.token);
+  const doReviewArchivo = async (decision: "aprobado" | "observado") => {
+    if (!archivoId) return;
+    // notas opcionales: podrías abrir un prompt si querés capturarlas
+    await reviewArchivo(archivoId, decision, null, token, reviewerName);
   };
 
   const handleApprove = async () => {
@@ -99,7 +99,7 @@ export default function ApprovalActions({
     setBusy(true);
     try {
       if (isArchivoMode) {
-        await doReviewArchivo("aprobado"); // ⬅️ persiste en DB (expediente_1 => área de pago)
+        await doReviewArchivo("aprobado"); // exp_1 → área de pago, exp_2 → cerrado, formal_pdf → en_proceso (según backend)
       } else {
         if (!onApprove) return;
         await onApprove();
@@ -119,17 +119,12 @@ export default function ApprovalActions({
     setBusy(true);
     try {
       if (isArchivoMode) {
-        // En modo archivo, el botón del medio es "Observar"
         const ok = window.confirm(
-          `¿Confirmás marcar ${docType?.replace(
-            "_",
-            " "
-          )} como OBSERVADO?\nEl solicitante verá la observación.`
+          `¿Confirmás marcar ${docType?.replace("_", " ")} como OBSERVADO?\nEl solicitante verá la observación.`
         );
         if (!ok) return;
         await doReviewArchivo("observado");
       } else {
-        // Modo pedido conserva tu "En revisión"
         if (!onReview) return;
         await onReview();
       }
