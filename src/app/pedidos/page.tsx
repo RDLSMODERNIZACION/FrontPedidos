@@ -24,7 +24,12 @@ const SECRETARIAS = [
 type TabKey = "info" | "archivos" | "estado" | "admin";
 
 export default function Page() {
-  const { isAuthenticated, token, user } = useAuth();
+  // Unificación segura de auth (soporta { isAuthenticated, token, user } o { auth: { ... } })
+  const authCtx = useAuth() as any;
+  const user = authCtx?.user ?? authCtx?.auth?.user ?? null;
+  const rawToken = authCtx?.token ?? authCtx?.auth?.token ?? null;
+  const isAuthenticated: boolean = !!(authCtx?.isAuthenticated ?? rawToken);
+  const token: string | undefined = (rawToken ?? undefined) as string | undefined;
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selected, setSelected] = useState<BackendPedido | null>(null);
@@ -35,7 +40,7 @@ export default function Page() {
     const u = user;
     const esAmplio = isEconomiaAdmin(u) || isAreaCompras(u) || isSecretariaCompras(u);
     if (!esAmplio && u?.secretaria && !filtros.secretaria) {
-      setFiltros(f => ({ ...f, secretaria: u.secretaria! }));
+      setFiltros((f) => ({ ...f, secretaria: u.secretaria! }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.secretaria]);
@@ -58,9 +63,9 @@ export default function Page() {
         estado: filtros.estado || undefined,
         sort: "updated_at_desc",
       },
-      token
+      token // ← string | undefined (no null)
     )
-      .then((r) => setItems(r.items ?? []))
+      .then((r) => setItems(r?.items ?? []))
       .catch((e) => setErr(e?.message || "Error"))
       .finally(() => setLoading(false));
   }, [isAuthenticated, token, filtros.q, filtros.estado]);
@@ -68,28 +73,32 @@ export default function Page() {
   // Filtro UI + permisos
   const filtered = useMemo(() => {
     let rows = Array.isArray(items) ? [...items] : [];
-    if (filtros.secretaria) rows = rows.filter(r => r.secretaria === filtros.secretaria);
-    if (filtros.estado) rows = rows.filter(r => r.estado === filtros.estado);
+    if (filtros.secretaria) rows = rows.filter((r) => r.secretaria === filtros.secretaria);
+    if (filtros.estado) rows = rows.filter((r) => r.estado === filtros.estado);
     if (filtros.q) {
       const q = filtros.q.toLowerCase();
-      rows = rows.filter(r => {
-        const s = (r.id_tramite ?? `#${r.id}`)
-          + (r.modulo ?? r.tipo_ambito ?? "")
-          + (r.secretaria ?? "")
-          + (r.solicitante ?? "");
+      rows = rows.filter((r: any) => {
+        const s =
+          (r.id_tramite ?? `#${r.id}`) +
+          (r.modulo ?? r.tipo_ambito ?? "") +
+          (r.secretaria ?? "") +
+          (r.solicitante ?? "");
         return s.toLowerCase().includes(q);
       });
     }
-    rows = rows.filter(r => canView(user, r));
+    rows = rows.filter((r) => canView(user, r));
     return rows;
   }, [items, filtros, user]);
 
-  const kpis = useMemo(() => ({
-    total: filtered.length,
-    enRev: filtered.filter(r => r.estado === "en_revision").length,
-    aprob: filtered.filter(r => r.estado === "aprobado").length,
-    rech:  filtered.filter(r => r.estado === "rechazado").length,
-  }), [filtered]);
+  const kpis = useMemo(
+    () => ({
+      total: filtered.length,
+      enRev: filtered.filter((r) => r.estado === "en_revision").length,
+      aprob: filtered.filter((r) => r.estado === "aprobado").length,
+      rech: filtered.filter((r) => r.estado === "rechazado").length,
+    }),
+    [filtered]
+  );
 
   return (
     <RequireAuth>
@@ -110,11 +119,13 @@ export default function Page() {
               <select
                 className="bg-panel2 border border-[#27314a] rounded-xl px-3 py-2 min-w-[220px]"
                 value={filtros.secretaria}
-                onChange={e => setFiltros(f => ({ ...f, secretaria: e.target.value }))}
+                onChange={(e) => setFiltros((f) => ({ ...f, secretaria: e.target.value }))}
               >
                 <option value="">Todas</option>
-                {SECRETARIAS.map(s => (
-                  <option key={s} value={s}>{s}</option>
+                {SECRETARIAS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
                 ))}
               </select>
             </label>
@@ -124,7 +135,7 @@ export default function Page() {
               <select
                 className="bg-panel2 border border-[#27314a] rounded-xl px-3 py-2 min-w-[200px]"
                 value={filtros.estado}
-                onChange={e => setFiltros(f => ({ ...f, estado: e.target.value }))}
+                onChange={(e) => setFiltros((f) => ({ ...f, estado: e.target.value }))}
               >
                 <option value="">Todos</option>
                 <option value="borrador">borrador</option>
@@ -144,7 +155,7 @@ export default function Page() {
                 className="w-full bg-panel2 border border-[#27314a] rounded-xl px-3 py-2"
                 placeholder="ID trámite, solicitante, módulo..."
                 value={filtros.q}
-                onChange={e => setFiltros(f => ({ ...f, q: e.target.value }))}
+                onChange={(e) => setFiltros((f) => ({ ...f, q: e.target.value }))}
               />
             </label>
 
@@ -152,24 +163,43 @@ export default function Page() {
               {user?.secretaria && (
                 <button
                   className="btn-ghost"
-                  onClick={() => setFiltros(f => ({ ...f, secretaria: user.secretaria! }))}
+                  onClick={() => setFiltros((f) => ({ ...f, secretaria: user.secretaria! }))}
                   title="Usar mi secretaría"
                 >
                   Mi secretaría
                 </button>
               )}
-              <button className="btn-ghost" onClick={() => setFiltros({ secretaria: "", estado: "", q: "" })}>
+              <button
+                className="btn-ghost"
+                onClick={() => setFiltros({ secretaria: "", estado: "", q: "" })}
+              >
                 Limpiar
               </button>
               <button
                 className="btn"
                 onClick={() => {
                   const rows = filtered;
-                  const headers = ["id_tramite","modulo","secretaria","solicitante","estado","total","creado"];
+                  const headers = [
+                    "id_tramite",
+                    "modulo",
+                    "secretaria",
+                    "solicitante",
+                    "estado",
+                    "total",
+                    "creado",
+                  ];
                   const csv = [headers.join(",")]
-                    .concat(rows.map((r: any) => headers.map(h => JSON.stringify(
-                      h === "modulo" ? (r.modulo ?? r.tipo_ambito ?? "") : r[h] ?? ""
-                    )).join(",")))
+                    .concat(
+                      rows.map((r: any) =>
+                        headers
+                          .map((h) =>
+                            JSON.stringify(
+                              h === "modulo" ? (r.modulo ?? r.tipo_ambito ?? "") : r[h] ?? ""
+                            )
+                          )
+                          .join(",")
+                      )
+                    )
                     .join("\n");
                   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
                   const a = document.createElement("a");
@@ -191,7 +221,10 @@ export default function Page() {
           {!loading && !err && (
             <PedidosTable
               rows={filtered}
-              onOpen={(row) => { setSelected(row); setDrawerOpen(true); }}
+              onOpen={(row) => {
+                setSelected(row);
+                setDrawerOpen(true);
+              }}
             />
           )}
         </section>
@@ -200,7 +233,13 @@ export default function Page() {
         <Drawer
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
-          title={selected ? `${selected.id_tramite ?? `#${selected.id}`} · ${cap((selected.modulo ?? selected.tipo_ambito ?? "—").toString())}` : "Detalle"}
+          title={
+            selected
+              ? `${
+                  selected.id_tramite ?? `#${selected.id}`
+                } · ${cap((selected.modulo ?? (selected as any).tipo_ambito ?? "—").toString())}`
+              : "Detalle"
+          }
         >
           {selected ? (
             <PedidoDetalleDrawer
@@ -208,8 +247,8 @@ export default function Page() {
               token={token}
               user={user}
               onUpdateEstado={(id, estado) => {
-                setSelected(s => (s && s.id === id ? { ...s, estado } : s));
-                setItems(arr => arr.map(r => (r.id === id ? { ...r, estado } : r)));
+                setSelected((s) => (s && s.id === id ? { ...s, estado } : s));
+                setItems((arr) => arr.map((r) => (r.id === id ? { ...r, estado } : r)));
               }}
             />
           ) : null}
