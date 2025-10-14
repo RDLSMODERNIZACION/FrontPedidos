@@ -36,6 +36,26 @@ export default function PedidoDetalleDrawer({
   type TabKey = "info" | "archivos" | "estado" | "admin";
   const [activeTab, setActiveTab] = useState<TabKey>("info");
 
+  // ===== Helpers de visualización =====
+  const fmtEstado = (estado?: string | null) =>
+    estado && estado.trim() ? cap(estado.replace(/_/g, " ")) : "—";
+
+  const estadoTone = (estado?: string | null): "ok" | "bad" | "warn" => {
+    switch (estado) {
+      case "aprobado":
+      case "cerrado":
+        return "ok";
+      case "rechazado":
+        return "bad";
+      case "enviado":
+      case "en_revision":
+      case "en_proceso":
+      case "area_pago":
+      default:
+        return "warn";
+    }
+  };
+
   // ===== Detalle / Archivos / Etapas =====
   const [detalle, setDetalle] = useState<PedidoInfo | null>(null);
   const [detalleLoading, setDetalleLoading] = useState(false);
@@ -106,39 +126,49 @@ export default function PedidoDetalleDrawer({
   const byKind = (k: string) => files.filter(f => f.kind === k);
 
   const latestPresupuesto = useMemo(() => {
-    const presus = files.filter(f => f.kind === "presupuesto_1" || f.kind === "presupuesto_2");
-    return presus.slice().sort((a,b) => {
-      const ta = a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0;
-      const tb = b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0;
-      return tb - ta || b.id - a.id;
-    })[0];
+    const presus = files.filter(
+      f => f.kind === "presupuesto_1" || f.kind === "presupuesto_2"
+    );
+    return presus
+      .slice()
+      .sort((a, b) => {
+        const ta = a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0;
+        const tb = b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0;
+        return tb - ta || b.id - a.id;
+      })[0];
   }, [files]);
 
   const latestFormal = useMemo(() => {
     const arr = byKind("formal_pdf");
-    return arr.slice().sort((a,b) => {
-      const ta = a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0;
-      const tb = b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0;
-      return tb - ta || b.id - a.id;
-    })[0];
+    return arr
+      .slice()
+      .sort((a, b) => {
+        const ta = a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0;
+        const tb = b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0;
+        return tb - ta || b.id - a.id;
+      })[0];
   }, [files]);
 
   const latestExp1 = useMemo(() => {
     const arr = byKind("expediente_1");
-    return arr.slice().sort((a,b) => {
-      const ta = a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0;
-      const tb = b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0;
-      return tb - ta || b.id - a.id;
-    })[0];
+    return arr
+      .slice()
+      .sort((a, b) => {
+        const ta = a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0;
+        const tb = b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0;
+        return tb - ta || b.id - a.id;
+      })[0];
   }, [files]);
 
   const latestExp2 = useMemo(() => {
     const arr = byKind("expediente_2");
-    return arr.slice().sort((a,b) => {
-      const ta = a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0;
-      const tb = b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0;
-      return tb - ta || b.id - a.id;
-    })[0];
+    return arr
+      .slice()
+      .sort((a, b) => {
+        const ta = a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0;
+        const tb = b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0;
+        return tb - ta || b.id - a.id;
+      })[0];
   }, [files]);
 
   // ===== acciones (admin) =====
@@ -339,18 +369,12 @@ export default function PedidoDetalleDrawer({
     <div className="grid gap-3">
       {/* Header badges */}
       <div className="flex flex-wrap items-center gap-2">
-        <Badge
-          tone={
-            pedido.estado === "aprobado" || pedido.estado === "cerrado"
-              ? "ok"
-              : pedido.estado === "rechazado"
-              ? "bad"
-              : "warn"
-          }
-        >
-          {cap(pedido.estado.replace("_", " "))}
+        <Badge tone={estadoTone(pedido.estado)}>
+          {fmtEstado(pedido.estado)}
         </Badge>
+
         <Badge>{pedido.secretaria ?? "—"}</Badge>
+
         {files.find(a => a.kind === "formal_pdf") ? (
           <Badge tone="ok">PDF formal</Badge>
         ) : null}
