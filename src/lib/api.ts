@@ -4,15 +4,15 @@
 // Tipos del backend
 // =====================
 
-/** Fila del listado (/ui/pedidos/list) — alineado con ui_pedidos_list */
+/** Fila del listado (/ui/pedidos/list) — alineado con ui_pedidos_listado */
 export type BackendPedido = {
   id: number;
-  id_tramite: string | null;      // ej: "EXP-2025-0003"
-  secretaria: string;             // nombre de Secretaría
-  estado: string;                 // "borrador" | "enviado" | "en_revision" | "aprobado" | "rechazado" | "en_proceso" | "area_pago" | "cerrado"
-  total: number | string | null;  // puede venir como string desde SQL
-  creado: string;                 // ISO (ej: "2025-10-10T01:54:52.186849Z")
-  updated_at?: string | null;
+  id_tramite: string | null;              // ej: "EXP-2025-0003"
+  secretaria: string | null;              // nombre de Secretaría (o null)
+  estado: string | null;                  // "borrador" | "enviado" | ...
+  total: number | string | null;          // viene como number/string/null desde SQL
+  creado: string | null;                  // ISO o null
+  updated_at: string | null;              // ISO o null
   // (intencionalmente SIN modulo / solicitante)
 };
 
@@ -34,7 +34,7 @@ export type PedidoInfo = {
   fecha_hasta: string | null;
   presupuesto_estimado: number | string | null;
   observaciones: string | null;
-  modulo_payload: any | null;   // objeto normalizado (solo payload del módulo)
+  modulo_payload: any | null;   // objeto normalizado (payload del módulo)
   ambito_payload: any | null;   // objeto normalizado (payload del ámbito)
 };
 
@@ -98,7 +98,9 @@ function readTokenFromStorage(): string | undefined {
       localStorage.getItem("jwt") ??
       localStorage.getItem("idToken");
     if (flat && flat.trim()) return flat;
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
   return undefined;
 }
 
@@ -137,7 +139,9 @@ async function ensureOk(res: Response) {
   try {
     const text = await res.text();
     if (text) msg += ` — ${text}`;
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
   throw new Error(msg);
 }
 
@@ -156,7 +160,7 @@ export async function http<T>(path: string, init?: RequestInit): Promise<T> {
 /** Coerce seguro a número (para 'total' o 'presupuesto_estimado') */
 function toNumber(x: unknown): number | null {
   if (x === null || x === undefined) return null;
-  if (typeof x === "number") return x;
+  if (typeof x === "number") return Number.isFinite(x) ? x : null;
   if (typeof x === "string") {
     const n = Number(x);
     return Number.isFinite(n) ? n : null;
@@ -171,7 +175,11 @@ function safeJSON<T = any>(x: unknown): T | null {
   if (typeof x === "string") {
     const s = x.trim();
     if (!s) return null;
-    try { return JSON.parse(s) as T; } catch { return s as unknown as T; }
+    try {
+      return JSON.parse(s) as T;
+    } catch {
+      return s as unknown as T;
+    }
   }
   return null;
 }
@@ -187,17 +195,22 @@ export async function getPedidos(
     estado?: string;
     sort?: string; // "updated_at_desc" | "created_at_desc" | "total_desc" | etc.
   },
-  token?: string // soportado; si lo pasás, tiene prioridad
-) {
+  token?: string // si lo pasás, tiene prioridad
+): Promise<Paginated<BackendPedido>> {
   const url = buildUrl("/ui/pedidos/list", params);
   const headers: HeaderMap = jsonHeaders(authHeaders(token));
   const res = await fetch(url, { cache: "no-store", headers });
   await ensureOk(res);
   const data = (await res.json()) as Paginated<BackendPedido>;
 
-  data.items = data.items.map((r) => ({
+  // Normalización mínima: si 'total' viene como string numérico => number; si null => null (NO 0)
+  data.items = (data.items ?? []).map((r: any) => ({
     ...r,
     total: toNumber(r.total) ?? r.total,
+    secretaria: r.secretaria ?? null,
+    estado: r.estado ?? null,
+    creado: r.creado ?? null,
+    updated_at: r.updated_at ?? null,
   }));
 
   return data;
@@ -206,7 +219,7 @@ export async function getPedidos(
 /* =========================================================
  * Pedido (info)  →  GET /ui/pedidos/{id}/info
  * ========================================================= */
-export async function getPedidoInfo(pedidoId: number, token?: string) {
+export async function getPedidoInfo(pedidoId: number, token?: string): Promise<PedidoInfo> {
   const res = await fetch(`${API_BASE}/ui/pedidos/${pedidoId}/info`, {
     cache: "no-store",
     headers: jsonHeaders(authHeaders(token)),
@@ -227,7 +240,7 @@ export async function getPedidoInfo(pedidoId: number, token?: string) {
 /* =========================================================
  * Pedido (archivos)  →  GET /ui/pedidos/{id}/archivos
  * ========================================================= */
-export async function getPedidoArchivos(pedidoId: number, token?: string) {
+export async function getPedidoArchivos(pedidoId: number, token?: string): Promise<PedidoArchivo[]> {
   const res = await fetch(`${API_BASE}/ui/pedidos/${pedidoId}/archivos`, {
     cache: "no-store",
     headers: jsonHeaders(authHeaders(token)),
@@ -235,7 +248,7 @@ export async function getPedidoArchivos(pedidoId: number, token?: string) {
   await ensureOk(res);
   const data = await res.json();
   const items = (Array.isArray(data?.items) ? data.items : []) as PedidoArchivo[];
-  return items.map(a => ({
+  return items.map((a) => ({
     ...a,
     size_bytes: typeof a.size_bytes === "string" ? Number(a.size_bytes) : a.size_bytes,
   }));
@@ -253,20 +266,20 @@ export async function getPedidoEtapas(pedidoId: number, token?: string): Promise
   const raw = (await res.json()) as Partial<PedidoEtapas> | Record<string, never>;
 
   const def: PedidoEtapas = {
-    pedido_id: typeof raw.pedido_id === "number" ? raw.pedido_id : pedidoId,
+    pedido_id: typeof (raw as any)?.pedido_id === "number" ? (raw as any).pedido_id : pedidoId,
     estado: (raw as any)?.estado ?? null,
     estado_actual: (raw as any)?.estado_actual ?? null,
 
-    creado_at: raw.creado_at ?? null,
-    enviado_at: raw.enviado_at ?? null,
-    en_revision_at: raw.en_revision_at ?? null,
-    aprobado_at: raw.aprobado_at ?? null,
-    en_proceso_at: raw.en_proceso_at ?? null,
-    area_pago_at: raw.area_pago_at ?? null,
-    cerrado_at: raw.cerrado_at ?? null,
-    formal_pdf_at: raw.formal_pdf_at ?? null,
-    expediente_1_at: raw.expediente_1_at ?? null,
-    expediente_2_at: raw.expediente_2_at ?? null,
+    creado_at: (raw as any)?.creado_at ?? null,
+    enviado_at: (raw as any)?.enviado_at ?? null,
+    en_revision_at: (raw as any)?.en_revision_at ?? null,
+    aprobado_at: (raw as any)?.aprobado_at ?? null,
+    en_proceso_at: (raw as any)?.en_proceso_at ?? null,
+    area_pago_at: (raw as any)?.area_pago_at ?? null,
+    cerrado_at: (raw as any)?.cerrado_at ?? null,
+    formal_pdf_at: (raw as any)?.formal_pdf_at ?? null,
+    expediente_1_at: (raw as any)?.expediente_1_at ?? null,
+    expediente_2_at: (raw as any)?.expediente_2_at ?? null,
   };
 
   return def;
@@ -274,7 +287,6 @@ export async function getPedidoEtapas(pedidoId: number, token?: string): Promise
 
 /* =========================================================
  * Diagnóstico rápido (opcional) — loguea API_BASE y prueba /health
- * Llamalo una vez desde un componente cliente (por ejemplo en PedidoDetalleDrawer).
  * ========================================================= */
 export function apiDiagOnce() {
   if (typeof window === "undefined") return;
@@ -283,9 +295,6 @@ export function apiDiagOnce() {
   w.__API_DIAGGED = true;
 
   try {
-    // Muestra a dónde apunta realmente el front-end
-    // Útil para detectar mixed content (http:// en producción con https://)
-    // o env mal seteada.
     // eslint-disable-next-line no-console
     console.info("[API_BASE]", API_BASE);
 
@@ -294,11 +303,11 @@ export function apiDiagOnce() {
       cache: "no-store",
       headers: { Accept: "application/json" },
     })
-      .then(r => r.text())
+      .then((r) => r.text())
       // eslint-disable-next-line no-console
-      .then(t => console.info("[API_HEALTH]", t))
+      .then((t) => console.info("[API_HEALTH]", t))
       // eslint-disable-next-line no-console
-      .catch(e => console.warn("[API_HEALTH_ERROR]", e));
+      .catch((e) => console.warn("[API_HEALTH_ERROR]", e));
   } catch (e) {
     // eslint-disable-next-line no-console
     console.warn("[API_DIAG_ERROR]", e);
