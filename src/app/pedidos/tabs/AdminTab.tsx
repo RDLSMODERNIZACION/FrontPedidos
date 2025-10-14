@@ -47,32 +47,43 @@ export default function AdminTab({
   onObserveExp2: () => void | Promise<void>;
   canApproveExp2: boolean;
 }) {
+  // ===== Null-safety para estado =====
+  const est: string = pedido?.estado ?? "en_revision";
+
+  const fmtEstado = (estado?: string | null) =>
+    estado && estado.trim() ? estado.replace(/_/g, " ") : "—";
+
+  const toneByEstado = (estado?: string | null): "ok" | "bad" | "warn" => {
+    switch (estado) {
+      case "aprobado":
+      case "cerrado":
+        return "ok";
+      case "rechazado":
+        return "bad";
+      default:
+        return "warn";
+    }
+  };
+
+  // Permisos/condiciones
   const canAct =
     !!pedido &&
     canModerate(user, pedido) &&
-    !["rechazado", "cerrado"].includes(pedido.estado);
+    !["rechazado", "cerrado"].includes(est);
 
-  const isEnviado   = pedido.estado === "enviado";
-  const isRevision  = pedido.estado === "en_revision";
-  const isAprobado  = pedido.estado === "aprobado";
-  const isProceso   = pedido.estado === "en_proceso";
-  const isAreaPago  = pedido.estado === "area_pago";
+  const isEnviado  = est === "enviado";
+  const isRevision = est === "en_revision";
+  const isAprobado = est === "aprobado";
+  const isProceso  = est === "en_proceso";
+  const isAreaPago = est === "area_pago";
 
   return (
     <section className="card grid gap-4">
       {/* Estado actual */}
       <div className="flex items-center justify-between">
         <h4 className="text-base font-semibold">Acciones de Admin</h4>
-        <Badge
-          tone={
-            pedido.estado === "aprobado" || pedido.estado === "cerrado"
-              ? "ok"
-              : pedido.estado === "rechazado"
-              ? "bad"
-              : "warn"
-          }
-        >
-          {pedido.estado.replace("_", " ")}
+        <Badge tone={toneByEstado(est)}>
+          {fmtEstado(est)}
         </Badge>
       </div>
 
