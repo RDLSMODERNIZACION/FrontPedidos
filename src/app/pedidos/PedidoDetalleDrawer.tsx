@@ -412,7 +412,8 @@ export default function PedidoDetalleDrawer({
       {activeTab === "archivos" && (
         <ArchivosTab
           pedidoId={pedido.id}
-          estado={pedido.estado}
+          // ⬇️ ArchivosTab espera string: damos fallback si viene null
+          estado={pedido.estado ?? "en_revision"}
           files={files}
           loading={filesLoading || actionBusy}
           onRefresh={() => {
