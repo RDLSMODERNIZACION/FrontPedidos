@@ -11,10 +11,7 @@ import {
   getPedidoInfo,
   getPedidoEtapas,
 } from "@/lib/api";
-import {
-  listArchivos,
-  reviewArchivo as reviewFile,
-} from "@/lib/archivos";
+import { listArchivos, reviewArchivo as reviewFile } from "@/lib/archivos";
 import { cap } from "@/lib/utils";
 
 import InfoTab from "./tabs/InfoTab";
@@ -50,6 +47,7 @@ export default function PedidoDetalleDrawer({
         return "bad";
       case "enviado":
       case "en_revision":
+      case "observado":
       case "en_proceso":
       case "area_pago":
       default:
@@ -110,6 +108,12 @@ export default function PedidoDetalleDrawer({
     }
   }
 
+  // Refetch agrupado (lo usamos post-acción de admin)
+  const refreshAll = async (estadoNuevo?: string) => {
+    await Promise.all([refreshArchivos(), fetchDetalle(), fetchEtapas()]);
+    if (estadoNuevo) onUpdateEstado?.(pedido.id, estadoNuevo);
+  };
+
   // Carga inicial
   useEffect(() => {
     void fetchDetalle();
@@ -125,19 +129,6 @@ export default function PedidoDetalleDrawer({
 
   // -------- últimos archivos por tipo --------
   const byKind = (k: string) => files.filter(f => f.kind === k);
-
-  const latestPresupuesto = useMemo(() => {
-    const presus = files.filter(
-      f => f.kind === "presupuesto_1" || f.kind === "presupuesto_2"
-    );
-    return presus
-      .slice()
-      .sort((a, b) => {
-        const ta = a.uploaded_at ? new Date(a.uploaded_at).getTime() : 0;
-        const tb = b.uploaded_at ? new Date(b.uploaded_at).getTime() : 0;
-        return tb - ta || b.id - a.id;
-      })[0];
-  }, [files]);
 
   const latestFormal = useMemo(() => {
     const arr = byKind("formal_pdf");
@@ -176,58 +167,6 @@ export default function PedidoDetalleDrawer({
   const [actionBusy, setActionBusy] = useState(false);
   const reviewer = user?.nombre ?? user?.username ?? user?.email ?? "ui";
 
-  // Refetch agrupado tras acción
-  const afterAction = async (estadoNuevo?: string) => {
-    await Promise.all([refreshArchivos(), fetchDetalle(), fetchEtapas()]);
-    if (estadoNuevo) onUpdateEstado?.(pedido.id, estadoNuevo);
-  };
-
-  async function approveLatestPresupuesto() {
-    if (!latestPresupuesto) {
-      alert("No hay un archivo de presupuesto para aprobar.");
-      return;
-    }
-    try {
-      setActionBusy(true);
-      await reviewFile(
-        latestPresupuesto.id,
-        "aprobado",
-        null,
-        token || undefined,
-        reviewer
-      );
-      await afterAction("aprobado");
-      setActiveTab("archivos");
-    } catch (e: any) {
-      alert(e?.message ?? "No se pudo aprobar el presupuesto");
-    } finally {
-      setActionBusy(false);
-    }
-  }
-
-  async function observeLatestPresupuesto() {
-    if (!latestPresupuesto) {
-      alert("No hay un archivo de presupuesto para observar.");
-      return;
-    }
-    const notes = prompt("Observaciones para el presupuesto:");
-    try {
-      setActionBusy(true);
-      await reviewFile(
-        latestPresupuesto.id,
-        "observado",
-        notes ?? null,
-        token || undefined,
-        reviewer
-      );
-      await refreshArchivos();
-    } catch (e: any) {
-      alert(e?.message ?? "No se pudo observar el presupuesto");
-    } finally {
-      setActionBusy(false);
-    }
-  }
-
   async function approveFormalPdf() {
     if (!latestFormal) {
       alert("No hay formal_pdf para aprobar.");
@@ -235,14 +174,8 @@ export default function PedidoDetalleDrawer({
     }
     try {
       setActionBusy(true);
-      await reviewFile(
-        latestFormal.id,
-        "aprobado",
-        null,
-        token || undefined,
-        reviewer
-      );
-      await afterAction("en_proceso");
+      await reviewFile(latestFormal.id, "aprobado", null, token || undefined, reviewer);
+      await refreshAll("en_proceso");
       setActiveTab("estado");
     } catch (e: any) {
       alert(e?.message ?? "No se pudo aprobar el formal_pdf");
@@ -259,13 +192,7 @@ export default function PedidoDetalleDrawer({
     const notes = prompt("Observaciones para el formal_pdf:");
     try {
       setActionBusy(true);
-      await reviewFile(
-        latestFormal.id,
-        "observado",
-        notes ?? null,
-        token || undefined,
-        reviewer
-      );
+      await reviewFile(latestFormal.id, "observado", notes ?? null, token || undefined, reviewer);
       await refreshArchivos();
     } catch (e: any) {
       alert(e?.message ?? "No se pudo observar el formal_pdf");
@@ -281,14 +208,8 @@ export default function PedidoDetalleDrawer({
     }
     try {
       setActionBusy(true);
-      await reviewFile(
-        latestExp1.id,
-        "aprobado",
-        null,
-        token || undefined,
-        reviewer
-      );
-      await afterAction("area_pago");
+      await reviewFile(latestExp1.id, "aprobado", null, token || undefined, reviewer);
+      await refreshAll("area_pago");
       setActiveTab("estado");
     } catch (e: any) {
       alert(e?.message ?? "No se pudo aprobar el expediente_1");
@@ -305,13 +226,7 @@ export default function PedidoDetalleDrawer({
     const notes = prompt("Observaciones para expediente_1:");
     try {
       setActionBusy(true);
-      await reviewFile(
-        latestExp1.id,
-        "observado",
-        notes ?? null,
-        token || undefined,
-        reviewer
-      );
+      await reviewFile(latestExp1.id, "observado", notes ?? null, token || undefined, reviewer);
       await refreshArchivos();
     } catch (e: any) {
       alert(e?.message ?? "No se pudo observar el expediente_1");
@@ -327,14 +242,8 @@ export default function PedidoDetalleDrawer({
     }
     try {
       setActionBusy(true);
-      await reviewFile(
-        latestExp2.id,
-        "aprobado",
-        null,
-        token || undefined,
-        reviewer
-      );
-      await afterAction("cerrado");
+      await reviewFile(latestExp2.id, "aprobado", null, token || undefined, reviewer);
+      await refreshAll("cerrado");
       setActiveTab("estado");
     } catch (e: any) {
       alert(e?.message ?? "No se pudo aprobar el expediente_2");
@@ -351,13 +260,7 @@ export default function PedidoDetalleDrawer({
     const notes = prompt("Observaciones para expediente_2:");
     try {
       setActionBusy(true);
-      await reviewFile(
-        latestExp2.id,
-        "observado",
-        notes ?? null,
-        token || undefined,
-        reviewer
-      );
+      await reviewFile(latestExp2.id, "observado", notes ?? null, token || undefined, reviewer);
       await refreshArchivos();
     } catch (e: any) {
       alert(e?.message ?? "No se pudo observar el expediente_2");
@@ -367,18 +270,13 @@ export default function PedidoDetalleDrawer({
   }
 
   return (
-    <div className="grid gap-3">
+    // 👇 Contenedor principal con flex + min-h-0 para scroll correcto
+    <div className="flex flex-col min-h-0 gap-3">
       {/* Header badges */}
       <div className="flex flex-wrap items-center gap-2">
-        <Badge tone={estadoTone(pedido.estado)}>
-          {fmtEstado(pedido.estado)}
-        </Badge>
-
+        <Badge tone={estadoTone(pedido.estado)}>{fmtEstado(pedido.estado)}</Badge>
         <Badge>{pedido.secretaria ?? "—"}</Badge>
-
-        {files.find(a => a.kind === "formal_pdf") ? (
-          <Badge tone="ok">PDF formal</Badge>
-        ) : null}
+        {files.find(a => a.kind === "formal_pdf") ? <Badge tone="ok">PDF formal</Badge> : null}
       </div>
 
       {/* Tabs */}
@@ -406,51 +304,54 @@ export default function PedidoDetalleDrawer({
         ))}
       </div>
 
-      {/* Panels */}
-      {activeTab === "info" && (
-        <InfoTab detalle={detalle} loading={detalleLoading} error={detalleErr} />
-      )}
+      {/* Panel visible: ocupa alto restante y maneja su propio scroll */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        {activeTab === "info" && (
+          <InfoTab detalle={detalle} loading={detalleLoading} error={detalleErr} />
+        )}
 
-      {activeTab === "archivos" && (
-        <ArchivosTab
-          pedidoId={pedido.id}
-          estado={pedido.estado ?? "en_revision"}
-          files={files}
-          loading={filesLoading || actionBusy}
-          onRefresh={() => {
-            void refreshArchivos();
-            void fetchDetalle();
-            void fetchEtapas();
-          }}
-          token={token}
-        />
-      )}
+        {activeTab === "archivos" && (
+          <ArchivosTab
+            pedidoId={pedido.id}
+            estado={pedido.estado ?? "en_revision"}
+            files={files}
+            loading={filesLoading || actionBusy}
+            onRefresh={() => {
+              void refreshArchivos();
+              void fetchDetalle();
+              void fetchEtapas();
+            }}
+            token={token}
+          />
+        )}
 
-      {activeTab === "estado" && <EstadoTab etapas={etapas} stages={STAGES} />}
+        {activeTab === "estado" && <EstadoTab etapas={etapas} stages={STAGES} />}
 
-      {activeTab === "proveedores" && (
-        <ProveedoresTab pedidoId={pedido.id} />
-      )}
+        {activeTab === "proveedores" && <ProveedoresTab pedidoId={pedido.id} />}
 
-      {activeTab === "admin" && (
-        <AdminTab
-          pedido={pedido}
-          user={user}
-          loading={actionBusy}
-          onApproveBudget={approveLatestPresupuesto}
-          onObserveBudget={observeLatestPresupuesto}
-          canApproveBudget={!!latestPresupuesto}
-          onApproveFormal={approveFormalPdf}
-          onObserveFormal={observeFormalPdf}
-          canApproveFormal={!!latestFormal}
-          onApproveExp1={approveExp1}
-          onObserveExp1={observeExp1}
-          canApproveExp1={!!latestExp1}
-          onApproveExp2={approveExp2}
-          onObserveExp2={observeExp2}
-          canApproveExp2={!!latestExp2}
-        />
-      )}
+        {activeTab === "admin" && (
+          <AdminTab
+            pedido={pedido}
+            user={user}
+            loading={actionBusy}
+            // Documentos
+            onApproveFormal={approveFormalPdf}
+            onObserveFormal={observeFormalPdf}
+            canApproveFormal={!!latestFormal}
+            onApproveExp1={approveExp1}
+            onObserveExp1={observeExp1}
+            canApproveExp1={!!latestExp1}
+            onApproveExp2={approveExp2}
+            onObserveExp2={observeExp2}
+            canApproveExp2={!!latestExp2}
+            // 👉 Refresca todo al aprobar/observar/rechazar el pedido
+            onAfterDecision={async (nuevoEstado) => {
+              await refreshAll(nuevoEstado);
+              setActiveTab("estado"); // opcional: mostrar la línea de tiempo
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }
