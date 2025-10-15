@@ -21,7 +21,7 @@ import InfoTab from "./tabs/InfoTab";
 import ArchivosTab from "./tabs/ArchivosTab";
 import EstadoTab from "./tabs/EstadoTab";
 import AdminTab from "./tabs/AdminTab";
-import ProveedoresTab from "./tabs/ProveedoresTab"; // ⬅️ nuevo (visual-only ahora)
+import ProveedoresTab from "./tabs/ProveedoresTab"; // ✅ conectado a backend
 
 export default function PedidoDetalleDrawer({
   pedido,
@@ -366,9 +366,6 @@ export default function PedidoDetalleDrawer({
     }
   }
 
-  // ======= Solo visual del Tab Proveedores (componente separado) =======
-  const [q] = useState(""); // reservado (UI-only en subcomponente)
-
   return (
     <div className="grid gap-3">
       {/* Header badges */}
@@ -391,7 +388,7 @@ export default function PedidoDetalleDrawer({
             { key: "info", label: "Info" },
             { key: "archivos", label: "Archivos" },
             { key: "estado", label: "Estado" },
-            { key: "proveedores", label: "Proveedores" }, // ⬅️ nuevo
+            { key: "proveedores", label: "Proveedores" },
             { key: "admin", label: "Admin" },
           ] as { key: TabKey; label: string }[]
         ).map(t => (
@@ -409,7 +406,7 @@ export default function PedidoDetalleDrawer({
         ))}
       </div>
 
-      {/* Paneles */}
+      {/* Panels */}
       {activeTab === "info" && (
         <InfoTab detalle={detalle} loading={detalleLoading} error={detalleErr} />
       )}
@@ -417,7 +414,6 @@ export default function PedidoDetalleDrawer({
       {activeTab === "archivos" && (
         <ArchivosTab
           pedidoId={pedido.id}
-          // ⬇️ ArchivosTab espera string: damos fallback si viene null
           estado={pedido.estado ?? "en_revision"}
           files={files}
           loading={filesLoading || actionBusy}
